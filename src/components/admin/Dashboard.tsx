@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import api from "@/lib/api";
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -44,6 +45,20 @@ export default function AdminDashboard() {
         >
           ↻ تحديث
         </Button>
+      </div>
+
+      {/* وصول سريع: قائمة الموظفين */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Link href="/admin/listEmployee" className="block">
+          <Card className="cursor-pointer hover:shadow-lg transition-shadow">
+            <CardContent className="p-4 text-center">
+              <h2 className="text-lg font-semibold mb-1">قائمة الموظفين</h2>
+              <p className="text-sm text-muted-foreground">
+                عرض جميع الموظفين
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* الإحصائيات العامة */}

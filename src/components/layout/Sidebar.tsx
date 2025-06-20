@@ -10,7 +10,9 @@ import {
   FiFileText,
   FiDollarSign,
   FiLogOut,
+  FiUserPlus,
   FiX,
+  FiUser
 } from "react-icons/fi";
 import { cn } from "@/lib/utils";
 
@@ -26,10 +28,12 @@ export default function Sidebar({ role, isOpen, onClose }: SidebarProps) {
   const links = role === "admin"
     ? [
         { href: "/admin/dashboard", label: "لوحة المدير", icon: <FiHome /> },
-        { href: "/admin/services", label: "الخدمات", icon: <FiActivity /> },
         { href: "/admin/currencies", label: "العملات", icon: <FiDollarSign /> },
-        { href: "/admin/reports", label: "التقارير", icon: <FiFileText /> },
+        { href: "/admin/services", label: "الخدمات", icon: <FiActivity /> },
+        { href: "/admin/customers", label: "العملاء", icon: <FiUser /> },
+        { href: "/admin/employee", label: "اضافة موظف", icon: <FiUserPlus /> },
         { href: "/admin/transactions", label: "الحوالات", icon: <FiActivity /> },
+        { href: "/admin/reports", label: "التقارير", icon: <FiFileText /> },
       ]
     : [
         { href: "/employee/dashboard", label: "لوحة التحكم", icon: <FiHome /> },

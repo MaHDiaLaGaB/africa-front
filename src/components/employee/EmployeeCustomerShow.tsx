@@ -38,7 +38,7 @@ export default function CustomerDetailsPage() {
       api.get(`/customers/${id}`),
       api.get(`/customers/${id}/transactions`),
       api.get(`/customers/${id}/receipts`),
-      api.get("/services/available"),
+      api.get("/services/get/available"),
     ]);
     setCustomer(c.data);
     setTransactions(t.data);

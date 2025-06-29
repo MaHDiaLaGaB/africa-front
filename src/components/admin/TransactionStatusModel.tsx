@@ -9,7 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Select, SelectTrigger, SelectValue, SelectItem, SelectContent } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectItem,
+  SelectContent,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import api from "@/lib/api";
@@ -20,7 +26,7 @@ export default function TransactionStatusModal({
   onSuccess,
 }: {
   transactionId: number;
-  onSuccess: () => void;
+  onSuccess: (newStatus: string) => void; // <-- updated signature
 }) {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState("");
@@ -33,15 +39,15 @@ export default function TransactionStatusModal({
     }
 
     try {
-      await api.put(`/transaction/${transactionId}/status`, {
+      await api.put(`/admintx/transaction/${transactionId}/status`, {
         status,
         reason: reason || undefined,
       });
       toast.success("✅ تم تحديث الحالة");
       setOpen(false);
+      onSuccess(status);              // <-- pass the new status back
       setStatus("");
       setReason("");
-      onSuccess();
     } catch (err: any) {
       toast.error(err?.response?.data?.detail || "فشل في تحديث الحالة");
     }

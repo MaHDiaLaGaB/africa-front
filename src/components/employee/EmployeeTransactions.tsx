@@ -98,7 +98,7 @@ export default function EmployeeTransactionsPage() {
                   📅 {new Date(t.created_at).toLocaleDateString()}
                 </p>
                 <p className="text-sm sm:text-base">🔗 الخدمة: {t.service?.name}</p>
-                <p className="text-sm sm:text-base">👤 الزبون: {t.name}</p>
+                <p className="text-sm sm:text-base">👤 الزبون: {t.customer_name}</p>
                 <p className="text-sm sm:text-base">📌 الحالة: {t.status}</p>
               </li>
             ))}

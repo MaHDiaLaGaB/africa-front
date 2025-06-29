@@ -18,58 +18,59 @@ interface Currency {
   id: number;
   name: string;
   symbol: string;
-  exchange_rate: number;
-  cost_per_unit: number;
   stock: number;
   is_active: boolean;
 }
 
 export default function AdminCurrenciesPage() {
   const [currencies, setCurrencies] = useState<Currency[]>([]);
-  const [editCurrency, setEditCurrency] = useState<Currency | null>(null);
-  const [form, setForm] = useState({
-    name: "",
-    symbol: "",
-    exchange_rate: "",
-    cost_per_unit: "",
-    stock: "",
-  });
+  const [newForm, setNewForm] = useState({ name: "", symbol: "" });
+  const [addModalCurrency, setAddModalCurrency] = useState<Currency | null>(null);
+  const [lotForm, setLotForm] = useState({ quantity: "", cost_per_unit: "" });
 
   const fetchCurrencies = async () => {
-    const res = await api.get("/currency/currencies/get");
-    setCurrencies(res.data);
+    try {
+      const res = await api.get("/currency/currencies/get");
+      setCurrencies(res.data);
+    } catch {
+      toast.error("فشل في جلب العملات");
+    }
   };
 
   useEffect(() => {
     fetchCurrencies();
   }, []);
 
-  const handleAdd = async () => {
+  const handleAddCurrency = async () => {
     try {
       await api.post("/currency/currencies/create", {
-        ...form,
-        exchange_rate: parseFloat(form.exchange_rate),
-        cost_per_unit: parseFloat(form.cost_per_unit),
+        name: newForm.name,
+        symbol: newForm.symbol,
       });
       toast.success("✅ تم إضافة العملة");
-      setForm({ name: "", symbol: "", exchange_rate: "", cost_per_unit: "", stock: "" });
+      setNewForm({ name: "", symbol: "" });
       fetchCurrencies();
     } catch {
       toast.error("فشل في إضافة العملة");
     }
   };
 
-  const handleUpdate = async () => {
+  const handleAddStock = async () => {
+    if (!addModalCurrency) return;
     try {
-      await api.put(`/currency/currencies/${editCurrency?.id}`, {
-        exchange_rate: editCurrency?.exchange_rate,
-        cost_per_unit: editCurrency?.cost_per_unit,
-      });
-      toast.success("✅ تم التحديث");
-      setEditCurrency(null);
+      await api.post(
+        `/currency/currencies/${addModalCurrency.id}/lots`,
+        {
+          quantity: parseFloat(lotForm.quantity),
+          cost_per_unit: parseFloat(lotForm.cost_per_unit),
+        }
+      );
+      toast.success("✅ تم إضافة الرصيد");
+      setAddModalCurrency(null);
+      setLotForm({ quantity: "", cost_per_unit: "" });
       fetchCurrencies();
     } catch {
-      toast.error("خطأ في التحديث");
+      toast.error("فشل في إضافة الرصيد");
     }
   };
 
@@ -80,50 +81,27 @@ export default function AdminCurrenciesPage() {
       {/* إضافة عملة جديدة */}
       <Card className="p-4 space-y-4">
         <h2 className="text-lg font-semibold">➕ إضافة عملة</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <Label>اسم العملة</Label>
             <Input
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              value={newForm.name}
+              onChange={(e) =>
+                setNewForm((f) => ({ ...f, name: e.target.value }))
+              }
             />
           </div>
           <div>
             <Label>الرمز (USD, EUR...)</Label>
             <Input
-              value={form.symbol}
-              onChange={(e) => setForm({ ...form, symbol: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>سعر البيع</Label>
-            <Input
-              type="number"
-              value={form.exchange_rate}
-              onChange={(e) => setForm({ ...form, exchange_rate: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>التكلفة</Label>
-            <Input
-              type="number"
-              value={form.cost_per_unit}
-              onChange={(e) => setForm({ ...form, cost_per_unit: e.target.value })}
-            />
-          </div>
-          <div>
-            <Label>الرصيد الأولي</Label>
-            <Input
-              type="number"
-              value={form.stock}
-              onChange={(e) => setForm({ ...form, stock: e.target.value })}
+              value={newForm.symbol}
+              onChange={(e) =>
+                setNewForm((f) => ({ ...f, symbol: e.target.value }))
+              }
             />
           </div>
         </div>
-        <Button
-          className="w-full sm:w-auto mt-2"
-          onClick={handleAdd}
-        >
+        <Button className="w-full sm:w-auto mt-2" onClick={handleAddCurrency}>
           إضافة
         </Button>
       </Card>
@@ -132,55 +110,50 @@ export default function AdminCurrenciesPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {currencies.map((c) => (
           <Card key={c.id} className="p-4 space-y-3">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+            <div className="flex justify-between items-center">
               <h3 className="text-lg font-semibold">
                 {c.name} ({c.symbol})
               </h3>
-              <span className="text-sm text-muted-foreground mt-1 sm:mt-0">
+              <span className="text-sm text-muted-foreground">
                 {c.is_active ? "✅ فعالة" : "⛔ غير فعالة"}
               </span>
             </div>
-            <p>سعر البيع: {c.exchange_rate} LYD</p>
-            <p>التكلفة: {c.cost_per_unit} LYD</p>
             <p>الرصيد: {c.stock}</p>
+
+            {/* حوار إضافة الرصيد */}
             <Dialog>
               <DialogTrigger asChild>
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
-                  onClick={() => setEditCurrency(c)}
+                  onClick={() => setAddModalCurrency(c)}
                 >
-                  تعديل
+                  ➕ رصيد
                 </Button>
               </DialogTrigger>
               <DialogContent className="space-y-4 max-w-md w-full">
-                <DialogTitle>تعديل {c.name}</DialogTitle>
-                <Label>سعر البيع</Label>
+                <DialogTitle>إضافة رصيد لـ {c.name}</DialogTitle>
+
+                <Label>الكمية</Label>
                 <Input
                   type="number"
-                  value={editCurrency?.exchange_rate ?? ""}
+                  value={lotForm.quantity}
                   onChange={(e) =>
-                    setEditCurrency((cur) =>
-                      cur
-                        ? { ...cur, exchange_rate: parseFloat(e.target.value) }
-                        : null
-                    )
+                    setLotForm((f) => ({ ...f, quantity: e.target.value }))
                   }
                 />
-                <Label>التكلفة</Label>
+
+                <Label>سعر التكلفة للوحدة</Label>
                 <Input
                   type="number"
-                  value={editCurrency?.cost_per_unit ?? ""}
+                  value={lotForm.cost_per_unit}
                   onChange={(e) =>
-                    setEditCurrency((cur) =>
-                      cur
-                        ? { ...cur, cost_per_unit: parseFloat(e.target.value) }
-                        : null
-                    )
+                    setLotForm((f) => ({ ...f, cost_per_unit: e.target.value }))
                   }
                 />
-                <Button onClick={handleUpdate} className="w-full">
-                  حفظ التغييرات
+
+                <Button onClick={handleAddStock} className="w-full">
+                  حفظ
                 </Button>
               </DialogContent>
             </Dialog>

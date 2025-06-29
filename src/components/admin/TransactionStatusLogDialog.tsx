@@ -18,7 +18,7 @@ export default function TransactionStatusLogDialog({ transactionId }: { transact
 
   useEffect(() => {
     if (open) {
-      api.get(`/transaction/${transactionId}/status-log`).then((res) => {
+      api.get(`/admintx/transaction/${transactionId}/status-log`).then((res) => {
         setLogs(res.data);
       });
     }

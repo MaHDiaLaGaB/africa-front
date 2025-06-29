@@ -18,7 +18,7 @@ export default function TransactionAuditDialog({ transactionId }: { transactionI
 
   useEffect(() => {
     if (open) {
-      api.get(`/transaction/${transactionId}/audits`).then((res) => {
+      api.get(`/admintx/transaction/${transactionId}/audits`).then((res) => {
         setLogs(res.data);
       });
     }

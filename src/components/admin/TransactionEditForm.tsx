@@ -61,7 +61,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
     to: txn.to ?? "",
     number: txn.number ?? "",
     amount_foreign: txn.amount_foreign,
-    amount_lyd: txn.amount_lyd,
+    // amount_lyd: txn.amount_lyd,
     payment_type: txn.payment_type,
     status: txn.status,
     status_reason: txn.status_reason ?? "",
@@ -79,7 +79,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
         to: txn.to ?? "",
         number: txn.number ?? "",
         amount_foreign: txn.amount_foreign,
-        amount_lyd: txn.amount_lyd,
+        // amount_lyd: txn.amount_lyd,
         payment_type: txn.payment_type,
         status: txn.status,
         status_reason: txn.status_reason ?? "",
@@ -106,8 +106,8 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
     // Update other fields via general endpoint
     const updateData: any = { ...form };
     delete updateData.client_name;
-    // delete updateData.status;
-    // delete updateData.status_reason;
+    delete updateData.created_at;
+    delete updateData.amount_lyd;
     delete updateData.created_at;
     // console.log(`updated data is ${JSON.stringify(updateData)}\n the id is ${txn.id}`)
     const res = await api.put(`/transactions/update/${txn.id}`, updateData);
@@ -172,8 +172,9 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
             <Label>المبلغ بلليبي</Label>
             <Input
               type="number"
-              value={form.amount_lyd}
-              onChange={(e) => handleChange("amount_lyd", parseFloat(e.target.value))}
+              value={txn.amount_lyd}  // Use original value from props
+              disabled
+              readOnly
             />
           </div>
           <div>

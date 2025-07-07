@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { FiMenu } from "react-icons/fi";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 interface HeaderProps {
   onToggleSidebar?: () => void;
@@ -20,14 +21,9 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
   };
 
   return (
-    <header className="w-full flex items-center justify-between px-4 sm:px-6 py-3 border-b bg-white shadow-sm">
-      {/* زر الهمبرغر يظهر على الموبايل فقط */}
+    <header className="w-full flex items-center justify-between px-4 py-3 border-b bg-white shadow-sm">
       {onToggleSidebar && (
-        <button
-          className="md:hidden mr-2"
-          onClick={onToggleSidebar}
-          aria-label="Toggle sidebar"
-        >
+        <button className="md:hidden mr-2" onClick={onToggleSidebar}>
           <FiMenu className="h-6 w-6" />
         </button>
       )}
@@ -38,7 +34,12 @@ export default function Header({ onToggleSidebar }: HeaderProps) {
 
       {user && (
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">{user.username}</span>
+          {/* ← put the bell here */}
+          <NotificationBell />
+
+          <span className="text-sm text-muted-foreground">
+            {user.username}
+          </span>
           <Button variant="destructive" onClick={handleLogout}>
             تسجيل الخروج
           </Button>

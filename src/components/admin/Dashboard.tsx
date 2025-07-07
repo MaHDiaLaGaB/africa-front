@@ -5,6 +5,7 @@ import api from "@/lib/api";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 export default function AdminDashboard() {
   const [data, setData] = useState<any>(null);
@@ -15,6 +16,7 @@ export default function AdminDashboard() {
     try {
       const res = await api.get("/reports/overview");
       setData(res.data);
+      console.log("تم تحميل البيانات بنجاح", res.data);
     } catch (err) {
       console.error("فشل في تحميل البيانات", err);
     } finally {
@@ -40,10 +42,24 @@ export default function AdminDashboard() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
         <h1 className="text-2xl font-bold">لوحة المدير</h1>
         <Button
-          className="w-full sm:w-auto mt-2 sm:mt-0" 
-          onClick={fetchData} disabled={loading}
+          onClick={fetchData}
+          disabled={loading}
+          className={`
+            w-full sm:w-auto mt-2 sm:mt-0
+            cursor-pointer
+            transition-transform duration-75 ease-out
+            active:scale-95
+            focus:outline-none focus:ring-2 focus:ring-offset-2
+          `}
         >
-          ↻ تحديث
+          {loading ? (
+            <span className="flex items-center space-x-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>جاري التحميل…</span>
+            </span>
+          ) : (
+            "↻ تحديث"
+          )}
         </Button>
       </div>
 
@@ -113,18 +129,31 @@ export default function AdminDashboard() {
         </Card>
 
         {/* أكثر الخدمات استخدامًا */}
-        <Card>
-          <CardContent className="p-4 space-y-2">
-            <h2 className="font-semibold text-lg mb-2">
-              💼 أكثر الخدمات استخدامًا
-            </h2>
-            {data.top_services.map((srv: any, idx: number) => (
+       <Card>
+        <CardContent className="p-4 space-y-2" dir="rtl">
+          <h2 className="font-semibold text-lg mb-2">
+            💼 أكثر الخدمات استخدامًا
+          </h2>
+          {data.top_services.map((srv: any, idx: number) => {
+            // choose the noun form
+            const noun =
+              srv.count >= 2 && srv.count <= 9
+                ? 'عمليات'
+                : 'عملية';
+
+            return (
               <p key={idx} className="text-sm">
-                {idx + 1}. {srv.name} — {srv.count} عملية
+                {idx + 1}. {srv.service_name} —{' '}
+                {/* wrap count+noun in an ltr span so the digits stay together */}
+                <span dir="ltr">
+                  {srv.count} {noun}
+                </span>
               </p>
-            ))}
-          </CardContent>
-        </Card>
+            );
+          })}
+        </CardContent>
+      </Card>
+
       </div>
 
       {/* العملات الأكثر تداولًا */}
@@ -136,7 +165,7 @@ export default function AdminDashboard() {
             </h2>
             {data.top_currencies.map((c: any, idx: number) => (
               <p key={idx} className="text-sm">
-                {idx + 1}. {c.name} —{" "}
+                {idx + 1}. {c.currency} —{" "}
                 {parseFloat(c.used).toFixed(2)}
               </p>
             ))}

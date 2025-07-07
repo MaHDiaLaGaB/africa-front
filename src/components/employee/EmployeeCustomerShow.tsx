@@ -1,249 +1,143 @@
-// components/employee/CustomerDetailsPage.tsx
 "use client";
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+
+interface Transaction {
+  id: number;
+  created_at: string;
+  amount_foreign: number;
+  amount_lyd: number;
+  currency_id: number;
+  service_id: number;
+  // enriched fields:
+  currency_name?: string;
+  currency_symbol?: string;
+  service_name?: string;
+}
+
+interface CurrencyOut {
+  id: number;
+  name: string;
+  symbol: string;
+}
+
+interface ServiceOut {
+  id: number;
+  name: string;
+}
 
 export default function CustomerDetailsPage() {
   const { id } = useParams();
   const [customer, setCustomer] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
-  const [receipts, setReceipts] = useState<any[]>([]);
-  const [services, setServices] = useState<any[]>([]);
-
-  const [form, setForm] = useState({
-    service_id: "",
-    amount_foreign: "",
-    name: "",
-    to: "",
-    number: "",
-  });
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchData = async () => {
-    const [c, t, r, s] = await Promise.all([
-      api.get(`/customers/${id}`),
-      api.get(`/customers/${id}/transactions`),
-      api.get(`/customers/${id}/receipts`),
-      api.get("/services/get/available"),
-    ]);
-    setCustomer(c.data);
-    setTransactions(t.data);
-    setReceipts(r.data);
-    setServices(s.data);
+    setLoading(true);
+    try {
+      // 1. fetch customer & raw transactions
+      const [cRes, tRes] = await Promise.all([
+        api.get(`/customers/${id}`),
+        api.get<Transaction[]>(`/customers/${id}/transactions`),
+      ]);
+      setCustomer(cRes.data);
+      const rawTxs = tRes.data;
+
+      // 2. fetch currencies
+      const currencyIds = Array.from(new Set(rawTxs.map((tx) => tx.currency_id)));
+      const currencyReqs = currencyIds.map((cid) => api.get<CurrencyOut>(`/currency/currencies/${cid}`));
+      const currencyRes = await Promise.all(currencyReqs);
+      const cmap: Record<number, CurrencyOut> = {};
+      currencyRes.forEach((r) => (cmap[r.data.id] = r.data));
+
+      // 3. fetch services
+      const serviceIds = Array.from(new Set(rawTxs.map((tx) => tx.service_id)));
+      const serviceReqs = serviceIds.map((sid) => api.get<ServiceOut>(`/services/get/${sid}`));
+      const serviceRes = await Promise.all(serviceReqs);
+      const smap: Record<number, ServiceOut> = {};
+      serviceRes.forEach((r) => (smap[r.data.id] = r.data));
+
+      // 4. enrich transactions
+      const enriched = rawTxs.map((tx) => ({
+        ...tx,
+        currency_name: cmap[tx.currency_id]?.name || "—",
+        currency_symbol: cmap[tx.currency_id]?.symbol || "—",
+        service_name: smap[tx.service_id]?.name || "—",
+      }));
+
+      setTransactions(enriched);
+    } catch (err) {
+      console.error("فشل في تحميل البيانات", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     if (id) fetchData();
   }, [id]);
 
-  const calcLYD = () => {
-    const amount = parseFloat(form.amount_foreign);
-    const service = services.find((s) => s.id === Number(form.service_id));
-    if (!amount || !service) return 0;
-    return service.operation === "multiply"
-      ? amount * service.price
-      : amount / service.price;
-  };
-
-  const parseClipboardMessage = (text: string) => {
-    const lines = text
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(Boolean);
-    const number = lines.find((line) => /^\d{7,}$/.test(line)) || "";
-    const name = lines.length >= 2 ? lines[1] : "";
-    const to = lines.length >= 3 ? lines[2] : "";
-
-    setForm((prev) => ({
-      ...prev,
-      number,
-      name,
-      to,
-    }));
-  };
-
-  const handlePaste = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      parseClipboardMessage(text);
-      toast.success("✅ تم لصق البيانات");
-    } catch {
-      toast.error("❌ فشل في القراءة من الحافظة");
-    }
-  };
-
-  const handleCreditTransfer = async () => {
-    const { name, to, number, amount_foreign, service_id } = form;
-
-    if (!name || !to || !number || !amount_foreign || !service_id) {
-      toast.error("يرجى تعبئة جميع الحقول");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      await api.post("/transactions/create", {
-        customer_id: Number(id),
-        name,
-        to,
-        number,
-        amount_foreign: parseFloat(amount_foreign),
-        service_id: Number(service_id),
-        payment_type: "credit",
-      });
-      toast.success("✅ تمت الحوالة بنجاح");
-      fetchData();
-      setForm({ service_id: "", amount_foreign: "", name: "", to: "", number: "" });
-    } catch {
-      toast.error("فشل في تنفيذ الحوالة");
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (loading) {
+    return <p className="text-center py-8">جاري التحميل...</p>;
+  }
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-screen-lg mx-auto">
+    <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-screen-lg mx-auto space-y-6">
       {customer && (
-        <Card className="p-4 sm:p-6 space-y-2">
-          <h2 className="text-xl font-bold truncate">{customer.name}</h2>
-          <p className="text-sm sm:text-base">📞 {customer.phone}</p>
-          <p className="text-sm sm:text-base">🏙️ {customer.city}</p>
-          <p className="text-sm sm:text-base">
-            💰 الرصيد المستحق: {customer.balance_due} LYD
-          </p>
+        <Card className="p-6 space-y-2">
+          <h2 className="text-2xl font-bold">{customer.name}</h2>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <p>📞 {customer.phone}</p>
+            <p>🏙️ {customer.city}</p>
+            <p className="font-medium">
+              💰 الرصيد المستحق: {customer.balance_due} LYD
+            </p>
+          </div>
         </Card>
       )}
 
-      <div className="flex justify-end">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button className="text-sm sm:text-base">➕ تنفيذ حوالة بالدين</Button>
-          </DialogTrigger>
-          <DialogContent className="w-full max-w-full sm:max-w-md p-4 sm:p-6 space-y-4">
-            <DialogHeader>
-              <DialogTitle className="text-lg sm:text-xl">
-                حوالة جديدة للعميل
-              </DialogTitle>
-            </DialogHeader>
-
-            <Button
-              variant="secondary"
-              className="w-full sm:w-auto"
-              onClick={handlePaste}
-            >
-              📋 لصق من WhatsApp
-            </Button>
-
-            <div>
-              <Label>الخدمة</Label>
-              <select
-                value={form.service_id}
-                onChange={(e) => setForm({...form, service_id: e.target.value})}
-                className="w-full border rounded px-3 py-2 text-sm"
-              >
-                <option value="">اختر الخدمة</option>
-                {services.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name} ({s.price}{" "}
-                    {s.operation === "multiply" ? "✖️" : "➗"})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              className="w-full"
-              placeholder="اسم المرسل"
-              value={form.name}
-              onChange={(e) => setForm({...form, name: e.target.value})}
-            />
-            <Input
-              className="w-full"
-              placeholder="المدينة أو البنك"
-              value={form.to}
-              onChange={(e) => setForm({...form, to: e.target.value})}
-            />
-            <Input
-              className="w-full"
-              placeholder="رقم الهاتف أو الحساب"
-              value={form.number}
-              onChange={(e) => setForm({...form, number: e.target.value})}
-            />
-            <Input
-              className="w-full"
-              type="number"
-              placeholder="المبلغ بالعملة الأجنبية"
-              value={form.amount_foreign}
-              onChange={(e) => setForm({...form, amount_foreign: e.target.value})}
-            />
-
-            <p className="text-sm text-muted-foreground">
-              💰 القيمة بالدينار الليبي: {calcLYD().toFixed(2)} LYD
-            </p>
-
-            <Button
-              className="w-full sm:w-auto"
-              onClick={handleCreditTransfer}
-              disabled={loading}
-            >
-              {loading ? "جاري التنفيذ..." : "تأكيد الحوالة"}
-            </Button>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <Card className="p-4 sm:p-6 space-y-2">
-        <h3 className="text-lg font-semibold">🧾 الحوالات بالدين</h3>
+      <Card className="p-6">
+        <h3 className="text-xl font-semibold mb-4">🧾 تفاصيل الحوالات</h3>
         {transactions.length === 0 ? (
           <p className="text-sm text-muted-foreground">لا توجد حوالات.</p>
         ) : (
-          <ul className="space-y-2">
-            {transactions.map((t) => (
-              <li key={t.id} className="border p-2 sm:p-4 rounded">
-                <p className="text-sm sm:text-base">
-                  💵 {t.amount_foreign} {t.currency?.symbol} = {t.amount_lyd} LYD
-                </p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  📅 {new Date(t.created_at).toLocaleDateString()}
-                </p>
-                <p className="text-sm sm:text-base">
-                  🔗 الخدمة: {t.service?.name}
-                </p>
-              </li>
-            ))}
-          </ul>
-        )}
-      </Card>
-
-      <Card className="p-4 sm:p-6 space-y-2">
-        <h3 className="text-lg font-semibold">💸 أوامر القبض</h3>
-        {receipts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">لا توجد دفعات.</p>
-        ) : (
-          <ul className="space-y-2">
-            {receipts.map((r) => (
-              <li key={r.id} className="border p-2 sm:p-4 rounded">
-                <p className="text-sm sm:text-base">📥 {r.amount} LYD</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  📅 {new Date(r.created_at).toLocaleDateString()}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="min-w-full table-fixed border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="w-1/5 px-4 py-2 text-left text-sm">تاريخ</th>
+                  <th className="w-1/5 px-4 py-2 text-right text-sm">المبلغ الأجنبي</th>
+                  <th className="w-1/5 px-4 py-2 text-center text-sm">عملة</th>
+                  <th className="w-1/5 px-4 py-2 text-right text-sm">المبلغ بالليبي</th>
+                  <th className="w-1/5 px-4 py-2 text-left text-sm">الخدمة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.map((t) => (
+                  <tr key={t.id} className="border-t">
+                    <td className="px-4 py-2 text-left text-sm">
+                      {new Date(t.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2 text-right text-sm">
+                      {t.amount_foreign}
+                    </td>
+                    <td className="px-4 py-2 text-center text-sm">
+                      {t.currency_name} ({t.currency_symbol})
+                    </td>
+                    <td className="px-4 py-2 text-right text-sm">
+                      {t.amount_lyd}
+                    </td>
+                    <td className="px-4 py-2 text-left text-sm">
+                      {t.service_name}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

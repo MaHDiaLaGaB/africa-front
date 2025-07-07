@@ -43,7 +43,7 @@ type Service = {
 type ServiceGroup = {
   country: {
     country_name: string;
-    country_code: string; // ISO-2
+    code: string; // ISO-2
   };
   services: Service[];
 };
@@ -268,10 +268,10 @@ export default function AdminServicesPage() {
       <h2 className="text-xl font-bold">🗺️ الدول والخدمات</h2>
       <div className="space-y-6">
         {groups.map(({ country, services }) => (
-          <Card key={country.country_code} className="p-4 sm:p-6">
+          <Card key={country.code} className="p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-4">
               <span className="text-4xl">
-                {countryCodeToFlag(country.country_code)}
+                {countryCodeToFlag(country.code)}
               </span>
               <h3 className="text-lg font-bold">{country.country_name}</h3>
             </div>

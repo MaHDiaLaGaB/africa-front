@@ -13,17 +13,64 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-type Employee = { id: number; username: string; full_name: string; balance: number };
+type Employee = {
+  id: number;
+  username: string;
+  full_name: string;
+  balance: number; // merged in from the new endpoint
+};
 
 export default function AdminAllEmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [form, setForm] = useState({ sender_id: "", receiver_id: "", amount: "" });
+  const [form, setForm] = useState({
+    sender_id: "",
+    receiver_id: "",
+    amount: "",
+  });
+
+  // helper to load users + their balances
+  const loadEmployees = async () => {
+  try {
+    // 1. fetch users
+    console.log("Fetching users…");
+    const usersRes = await api.get<Omit<Employee, "balance">[]>("/auth/users");
+    console.log("Users response:", usersRes);
+    const users = usersRes.data;
+
+    // 2. for each user, fetch balance
+    const balances = await Promise.all(
+      users.map((u) => {
+        console.log(`Fetching balance for employee ${u.id}…`);
+        return api
+          .get<{ employee_id: number; balance: number }>(`/treasury/get/${u.id}`)
+          .then((res) => {
+            console.log(`Balance response for ${u.id}:`, res);
+            return res.data.balance;
+          })
+          .catch((err) => {
+            console.error(`Error fetching balance for ${u.id}:`, err);
+            return 0;
+          });
+      })
+    );
+
+    // 3. merge into Employee[]
+    const merged: Employee[] = users.map((u, i) => ({
+      ...u,
+      balance: balances[i],
+    }));
+    console.log("Merged employees with balances:", merged);
+
+    setEmployees(merged);
+  } catch (err) {
+    console.error("Error in loadEmployees:", err);
+    toast.error("فشل في تحميل الموظفين أو الأرصدة");
+  }
+};
+
 
   useEffect(() => {
-    api
-      .get("/auth/users")
-      .then((res) => setEmployees(res.data))
-      .catch(() => toast.error("فشل في تحميل الموظفين"));
+    loadEmployees();
   }, []);
 
   const handleTransfer = async () => {
@@ -39,8 +86,7 @@ export default function AdminAllEmployeesPage() {
       });
       toast.success("✅ تم التحويل");
       setForm({ sender_id: "", receiver_id: "", amount: "" });
-      const res = await api.get("/auth/users");
-      setEmployees(res.data);
+      await loadEmployees(); // refresh list & balances
     } catch {
       toast.error("خطأ أثناء التحويل");
     }
@@ -88,7 +134,9 @@ export default function AdminAllEmployeesPage() {
             placeholder="المبلغ (LYD)"
             type="number"
             value={form.amount}
-            onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, amount: e.target.value }))
+            }
             className="w-full"
           />
 
@@ -120,7 +168,8 @@ export default function AdminAllEmployeesPage() {
               </h3>
             </div>
             <p>
-              الرصيد: <span className="font-bold">{emp.balance} LYD</span>
+              الرصيد:{" "}
+              <span className="font-bold">{emp.balance.toFixed(2)} LYD</span>
             </p>
           </Card>
         ))}

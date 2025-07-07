@@ -1,11 +1,11 @@
-// components/employee/CustomersPage.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Input }  from "@/components/ui/input";
+import { Input } from "@/components/ui/input";
 
 interface Customer {
   id: number;
@@ -17,35 +17,40 @@ interface Customer {
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [name, setName]           = useState("");
-  const [phone, setPhone]         = useState("");
-  const [city, setCity]           = useState("");
-  const [loading, setLoading]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [name, setName]         = useState("");
+  const [phone, setPhone]       = useState("");
+  const [city, setCity]         = useState("");
   const router = useRouter();
-
-  const fetchCustomers = async () => {
-    const res = await api.get<Customer[]>("/customers/get");
-    setCustomers(res.data);
-  };
 
   useEffect(() => {
     fetchCustomers();
   }, []);
 
-  const handleCreate = async () => {
+  async function fetchCustomers() {
     setLoading(true);
     try {
-      await api.post("/customers/create", { name, phone, city });
-      setName("");
-      setPhone("");
-      setCity("");
-      fetchCustomers();
-    } catch (err) {
-      console.error("Error creating customer", err);
+      const res = await api.get<Customer[]>("/customers/get");
+      setCustomers(res.data);
+    } catch {
+      console.error("فشل في جلب العملاء");
     } finally {
       setLoading(false);
     }
-  };
+  }
+
+  async function handleCreate() {
+    setLoading(true);
+    try {
+      await api.post("/customers/create", { name, phone, city });
+      setName(""); setPhone(""); setCity("");
+      fetchCustomers();
+    } catch {
+      console.error("Error creating customer");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -102,10 +107,11 @@ export default function CustomersPage() {
                 <td className="p-2">{c.city}</td>
                 <td className="p-2">{c.balance_due ?? 0}</td>
                 <td className="p-2 space-x-2">
+                  {/* opens in a new tab */}
                   <Button
                     size="sm"
                     variant="link"
-                    onClick={() => router.push(`/employee/customers/${c.id}`)}
+                    onClick={() => router.push(`/admin/customers/${c.id}`)}
                   >
                     📄 عرض التفاصيل
                   </Button>

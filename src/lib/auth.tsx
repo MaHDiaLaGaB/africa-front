@@ -2,12 +2,14 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import api from "@/lib/api";
 import { jwtDecode } from "jwt-decode";
 import { toast } from "sonner";
 
 export type UserType = {
   id: number;
   username: string;
+  full_name?: string;
   role: "admin" | "employee";
 };
 
@@ -29,47 +31,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const checkAuth = () => {
+    const initializeAuth = async () => {
       const token = localStorage.getItem("access_token");
-      if (token) {
-        try {
-          const decoded: any = jwtDecode(token);
-          if (!decoded.sub || !decoded.role) throw new Error("Invalid token");
-
-          setUser({
-            id: parseInt(decoded.sub),
-            username: decoded.username ?? "",
-            role: decoded.role,
-          });
-        } catch (err) {
-          localStorage.removeItem("access_token");
-          setUser(null);
-        }
-      } else {
+      if (!token) {
         setUser(null);
+        setLoading(false);
+        router.push('/auth/login');
+        return;
       }
-      setLoading(false);
+
+      try {
+        // Optional: verify token integrity client-side
+        const decoded: any = jwtDecode(token);
+        if (!decoded.sub) throw new Error("Invalid token");
+
+        // Fetch full user info from backend
+        const res = await api.get<UserType>('/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        setUser(res.data);
+      } catch (err) {
+        console.error('Auth init failed:', err);
+        localStorage.removeItem("access_token");
+        setUser(null);
+        router.push('/auth/login');
+      } finally {
+        setLoading(false);
+      }
     };
 
-    checkAuth();
+    initializeAuth();
   }, []);
 
-  // 🟢 WebSocket للإشعارات الحية
-  useEffect(() => {
-    if (!user) return;
-
-    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/ws/${user.id}`);
-
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      toast.info(`🔔 ${data.content}`);
-    };
-
-    ws.onerror = () => toast.error("فشل في الاتصال بالإشعارات الحية");
-    ws.onclose = () => console.log("🔌 WebSocket disconnected");
-
-    return () => ws.close();
-  }, [user?.id]);
 
   return (
     <AuthContext.Provider value={{ user, setUser, loading }}>

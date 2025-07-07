@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import api from "@/lib/api";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -14,28 +13,63 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-// import your converted font Base64
 import { AmiriRegular } from "@/fonts/AmiriRegular";
 import { AmiriBold } from "@/fonts/AmiriBold";
 
-type Customer = { id: number; name: string; phone: string; city: string; balance_due: number; };
-type TransactionType = { id: number; amount_foreign: number; created_at: string; };
-type ReceiptType = { id: number; amount: number; created_at: string; };
+type Customer = {
+  id: number;
+  name: string;
+  phone: string;
+  city: string;
+  balance_due: number;
+};
+
+type TransactionType = {
+  id: number;
+  reference: string;
+  service_id: number;
+  payment_type: string;
+  amount_foreign: number;
+  amount_lyd: number;
+  status: string;
+  created_at: string;
+  employee_name: string;
+  client_name?: string;
+  to: string;
+  number: string;
+  notes?: string;
+};
+
+type ReceiptType = {
+  id: number;
+  amount: number;
+  created_at: string;
+};
+
+// match your ServiceOut response-model
+type ServiceOut = {
+  id: number;
+  name: string;
+};
 
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer|null>(null);
+
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
   const [receipts, setReceipts] = useState<ReceiptType[]>([]);
+  const [servicesMap, setServicesMap] = useState<Record<number, string>>({});
   const [loadingDetails, setLoadingDetails] = useState(false);
 
-  useEffect(() => { fetchCustomers(); }, []);
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
   async function fetchCustomers() {
     setLoading(true);
     try {
-      const res = await api.get("/customers/get");
+      const res = await api.get<Customer[]>("/customers/get");
       setCustomers(res.data);
     } catch {
       toast.error("فشل في جلب العملاء");
@@ -44,17 +78,38 @@ export default function AdminCustomers() {
     }
   }
 
-  async function fetchCustomerDetails(id: number) {
+  async function fetchCustomerDetails(customer: Customer) {
     setLoadingDetails(true);
+    setSelectedCustomer(customer);
+
     try {
-      const [tx, rc] = await Promise.all([
-        api.get(`/customers/${id}/transactions`),
-        api.get(`/customers/${id}/receipts`),
+      // 1) fetch transactions & receipts
+      const [txRes, rcRes] = await Promise.all([
+        api.get<TransactionType[]>(`/customers/${customer.id}/transactions`),
+        api.get<ReceiptType[]>(`/customers/${customer.id}/receipts`),
       ]);
-      setTransactions(tx.data);
-      setReceipts(rc.data);
+
+      const txData = txRes.data;
+      setTransactions(txData);
+      setReceipts(rcRes.data);
+
+      // 2) extract unique service_ids
+      const serviceIds = Array.from(new Set(txData.map((t) => t.service_id)));
+
+      // 3) fetch each service’s details
+      const services = await Promise.all(
+        serviceIds.map((sid) => api.get<ServiceOut>(`/services/get/${sid}`))
+      );
+
+      // 4) build the map
+      const map: Record<number, string> = {};
+      services.forEach((s) => {
+        map[s.data.id] = s.data.name;
+      });
+      setServicesMap(map);
+
     } catch {
-      toast.error("فشل في جلب معاملات العميل");
+      toast.error("فشل في جلب بيانات المعاملات والخدمات");
     } finally {
       setLoadingDetails(false);
     }
@@ -66,136 +121,169 @@ export default function AdminCustomers() {
   function generatePDF() {
     if (!selectedCustomer) return;
 
-    // 1) create the document
-    const doc = new jsPDF({ putOnlyUsedFonts: true });
+    const doc = new jsPDF({
+     orientation: "landscape",
+     unit: "mm",
+     format: "a4",
+     putOnlyUsedFonts: true,
+   });
     doc.addFileToVFS("Amiri-Regular.ttf", AmiriRegular);
-    doc.addFileToVFS("Amiri-Bold.ttf",    AmiriBold);
+    doc.addFileToVFS("Amiri-Bold.ttf", AmiriBold);
     doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
-    doc.addFont("Amiri-Bold.ttf",    "Amiri", "bold");
+    doc.addFont("Amiri-Bold.ttf", "Amiri", "bold");
 
-    // 2) title
-    doc.setFont("Amiri", "bold"); 
+    doc.setFont("Amiri", "bold");
     doc.setFontSize(16);
     doc.text(
-        `${selectedCustomer.name} :تقرير معاملات العميل `,
-        200,
-        20,
-        { align: "right" }
+      `${selectedCustomer.name} :تقرير معاملات العميل`,
+      200,
+      20,
+      { align: "right" }
     );
 
-    // 3) table data
-    const head = [["التاريخ", "القيمة", "النوع"]];
-    const body = [
-        ...transactions.map(t => [
-        new Date(t.created_at).toLocaleDateString("ar-LY"),
-        t.amount_foreign.toString(),
-        "دين",
-        ]),
-        ...receipts.map(r => [
-        new Date(r.created_at).toLocaleDateString("ar-LY"),
-        r.amount.toString(),
-        "سداد",
-        ]),
-    ];
+    const head = [[
+      "التاريخ","المرجع","الخدمة","نوع الدفع",
+      "أجنبي","ليرة","الحالة","الموظف","العميل","إلى","رقم","ملاحظات"
+    ]];
 
-    // 4) draw the table
+    const body = transactions.map((t) => [
+      new Date(t.created_at).toLocaleDateString("ar-LY"),
+      t.reference,
+      servicesMap[t.service_id] || `#${t.service_id}`,
+      t.payment_type,
+      t.amount_foreign.toString(),
+      t.amount_lyd.toString(),
+      t.status,
+      t.employee_name,
+      t.client_name || "-",
+      t.to,
+      t.number,
+      t.notes || "-",
+    ]);
+
     autoTable(doc, {
-        startY: 30,
-        head,
-        body,
-        margin: { left: 10, right: 10 },
-        styles: {
-            font: "Amiri",        // enforce Arabic font everywhere
-            fontSize: 12,
-            cellPadding: 4,
-            halign: "right",      // right-align all cells
-            valign: "middle",
-            },
-        headStyles: {
-            font: "Amiri",
-            fontStyle: "bold",
-            fillColor: [245, 245, 245],
-            textColor: [30, 30, 30],
-            halign: "center",     // center header text
-            },
-        alternateRowStyles: { // subtle zebra stripes
-        fillColor: [250, 250, 250],
-        },
-        columnStyles: {
-        0: { cellWidth: 50 }, // التاريخ
-        1: { cellWidth: 40 }, // القيمة
-        2: { cellWidth: 30 }, // النوع
-        },
-        // didParseCell: (data) => {
-        // // make absolutely sure every cell uses Amiri
-        // data.cell.styles.font = "Amiri";
-        // },
+      startY: 30,
+      head,
+      body,
+      margin: { left: 10, right: 10 },
+      styles: { font: "Amiri", fontSize: 10, cellPadding: 3, halign: "right" },
+      headStyles: { font: "Amiri", fontStyle: "bold", fillColor: [245,245,245], textColor: [30,30,30], halign: "center" },
+      alternateRowStyles: { fillColor: [250,250,250] },
     });
 
-  // 5) summary below table
-  const finalY = (doc as any).lastAutoTable.finalY + 10;
-  doc.setFont("Amiri", "normal"); 
-  doc.setFontSize(12);
-  doc.text(
-    `المجموع: دين ${totalDebt} — سداد ${totalPaid}`,
-    200,
-    finalY,
-    { align: "right" }
-  );
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    doc.setFont("Amiri", "normal");
+    doc.setFontSize(12);
+    doc.text(
+      `المجموع: دين ${totalDebt} — سداد ${totalPaid}`,
+      200,
+      finalY,
+      { align: "right" }
+    );
 
-  // 6) save
-  doc.save(`report_customer_${selectedCustomer.id}.pdf`);
-}
+    doc.save(`report_customer_${selectedCustomer.id}.pdf`);
+  }
 
   return (
     <div className="p-6">
       <h2 className="text-2xl font-bold mb-4">قائمة العملاء</h2>
+
       {loading ? (
         <p>جاري التحميل...</p>
       ) : (
-        <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {customers.map(c => (
-            <Card key={c.id} className="hover:shadow-lg transition-shadow">
-              <CardContent className="p-4 space-y-2">
-                <h3 className="font-semibold truncate">{c.name}</h3>
-                <p className="text-sm text-muted-foreground">📞 {c.phone}</p>
-                <p className="text-sm text-muted-foreground">🏙️ {c.city}</p>
-                <p className="text-sm">
-                  💸 الرصيد المستحق: <span className="font-bold">{c.balance_due} LYD</span>
-                </p>
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-2 w-full"
-                      onClick={() => {
-                        setSelectedCustomer(c);
-                        fetchCustomerDetails(c.id);
-                      }}
-                    >
-                      📑 عرض المعاملات
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-lg w-full">
-                    <DialogHeader>
-                      <DialogTitle>معاملات {selectedCustomer?.name}</DialogTitle>
-                    </DialogHeader>
-                    {loadingDetails ? (
-                      <p>جاري جلب البيانات...</p>
-                    ) : (
-                      <div className="space-y-4">
-                        {/* …transactions & receipts lists… */}
-                        <Button onClick={generatePDF} className="w-full">
-                          ⬇️ تحميل PDF
+        <div className="overflow-x-auto">
+          <table className="min-w-full table-fixed border-collapse">
+            <thead>
+              <tr className="bg-gray-100">
+                <th className="px-4 py-2 text-left text-sm">الاسم</th>
+                <th className="px-4 py-2 text-left text-sm">الهاتف</th>
+                <th className="px-4 py-2 text-left text-sm">المدينة</th>
+                <th className="px-4 py-2 text-right text-sm">الرصيد</th>
+                <th className="px-4 py-2 text-center text-sm">إجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map((c) => (
+                <tr key={c.id} className="border-t">
+                  <td className="px-4 py-2 text-left text-sm">{c.name}</td>
+                  <td className="px-4 py-2 text-left text-sm">{c.phone}</td>
+                  <td className="px-4 py-2 text-left text-sm">{c.city}</td>
+                  <td className="px-4 py-2 text-right text-sm">{c.balance_due} LYD</td>
+                  <td className="px-4 py-2 text-center text-sm">
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => fetchCustomerDetails(c)}
+                        >
+                          عرض
                         </Button>
-                      </div>
-                    )}
-                  </DialogContent>
-                </Dialog>
-              </CardContent>
-            </Card>
-          ))}
+                      </DialogTrigger>
+                      <DialogContent className="w-full max-w-xl h-[80vh] overflow-auto">
+                        <DialogHeader>
+                          <DialogTitle>
+                            معاملات {selectedCustomer?.name}
+                          </DialogTitle>
+                        </DialogHeader>
+
+                        {loadingDetails ? (
+                          <p>جاري جلب البيانات...</p>
+                        ) : (
+                          <div className="space-y-4">
+                            <div className="overflow-x-auto">
+                              <table className="min-w-max table-fixed border-collapse">
+                                <thead>
+                                  <tr className="bg-gray-100">
+                                    {["تاريخ","مرجع","الخدمة","دفع","أجنبي","دينار ليبي","حالة","إلى","رقم","ملاحظات"]
+                                      .map((h) => (
+                                        <th key={h} className="px-2 py-1 text-sm">{h}</th>
+                                      ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {transactions.map((t) => (
+                                    <tr key={t.id} className="border-t">
+                                      <td className="px-2 py-1 text-sm">{new Date(t.created_at).toLocaleDateString("ar-LY")}</td>
+                                      <td className="px-2 py-1 text-sm">{t.reference}</td>
+                                      <td className="px-2 py-1 text-sm">{servicesMap[t.service_id] || `#${t.service_id}`}</td>
+                                      <td className="px-2 py-1 text-sm">{t.payment_type}</td>
+                                      <td className="px-2 py-1 text-sm">{t.amount_foreign}</td>
+                                      <td className="px-2 py-1 text-sm">{t.amount_lyd}</td>
+                                      <td className="px-2 py-1 text-sm">{t.status}</td>
+                                      {/* <td className="px-2 py-1 text-sm">{t.employee_name}</td>
+                                      <td className="px-2 py-1 text-sm">{t.client_name || "-"}</td> */}
+                                      <td className="px-2 py-1 text-sm">{t.to}</td>
+                                      <td className="px-2 py-1 text-sm">{t.number}</td>
+                                      <td className="px-2 py-1 text-sm">{t.notes || "-"}</td>
+                                    </tr>
+                                  ))}
+                                  {receipts.map((r) => (
+                                    <tr key={`rc-${r.id}`} className="border-t">
+                                      <td className="px-2 py-1 text-sm">{new Date(r.created_at).toLocaleDateString("ar-LY")}</td>
+                                      <td colSpan={10} className="px-2 py-1 text-center text-sm">سداد دفعة</td>
+                                      <td className="px-2 py-1 text-sm">{r.amount}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                            <div className="text-right font-medium">
+                              المجموع: دين {totalDebt} — سداد {totalPaid}
+                            </div>
+                            <Button onClick={generatePDF} className="w-full">
+                              ⬇️ تحميل PDF
+                            </Button>
+                          </div>
+                        )}
+
+                      </DialogContent>
+                    </Dialog>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -22,7 +22,7 @@ function countryCodeToFlag(isoCode: string): string {
 }
 
 type CountryGroup = {
-  country: { country_name: string; country_code: string }
+  country: { country_name: string; code: string }
   services: any[]
 }
 
@@ -39,6 +39,8 @@ export default function EmployeeDashboard() {
 
       const res = await api.get("/services/grouped-for-employee")
       setGroupedServices(res.data)
+      console.log("groupedServices response:", res.data);
+
     } catch (err) {
       console.error("Error loading data", err)
     }
@@ -46,11 +48,22 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     if (user) fetchData()
+      console.log("تم تحميل بيانات الموظف:", user)
   }, [user])
 
-  /* ───────── الواجهة ───────── */
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* ترحيب باسم الموظف */}
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl sm:text-3xl font-bold">
+          مرحباً {' '}
+          <span className="text-primary">
+            {user?.role === "employee" ? user.full_name : "الموظف"}
+          </span>
+        </h1>
+        {/* <Button variant="ghost" onClick={() => auth.signOut()}>تسجيل خروج</Button> */}
+      </div>
+
       {/* رصيد الموظف */}
       <Card className="bg-gradient-to-br from-amber-100 to-yellow-50 border-none shadow-lg">
         <CardContent className="p-4 sm:p-6 text-center space-y-2">
@@ -72,20 +85,19 @@ export default function EmployeeDashboard() {
 
       {/* بطاقات الخدمات */}
       {groupedServices.map(({ country, services }) => (
-        <div key={country.country_code} className="space-y-3">
+        <div key={country.code} className="space-y-3">
           <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
             <span className="text-3xl sm:text-4xl">
-              {countryCodeToFlag(country.country_code)}
+              {countryCodeToFlag(country.code)}
             </span>
             {country.country_name}
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {services.map((service) => {
-              /* 💡 نضيف country_code لكل خدمة */
               const serviceWithCountry = {
                 ...service,
-                country_code: country.country_code,
+                country_code: country.code,
               }
 
               return (
@@ -96,7 +108,7 @@ export default function EmployeeDashboard() {
                   <CardHeader className="flex items-center gap-3 px-4 sm:px-6 py-3">
                     <div className="text-3xl sm:text-4xl">
                       {countryCodeToFlag(
-                        service.image_url || country.country_code,
+                        service.image_url || country.code,
                       )}
                     </div>
                     <CardTitle className="text-lg sm:text-xl font-bold truncate">
@@ -105,16 +117,16 @@ export default function EmployeeDashboard() {
                   </CardHeader>
 
                   <CardContent className="space-y-2 px-4 sm:px-6 pb-4 sm:pb-6">
-                    <div className="flex justify-between text-sm sm:text-base">
+                    <div className="flex items-center justify-start text-sm sm:text-base space-x-2 rtl:space-x-reverse">
                       <span className="text-gray-500">السعر:</span>
                       <span className="font-semibold text-primary">
                         {service.price}
                       </span>
                     </div>
 
-                    <div className="flex justify-between text-sm sm:text-base">
+                    <div className="flex items-center justify-start text-sm sm:text-base space-x-2 rtl:space-x-reverse">
                       <span className="text-gray-500">العملية:</span>
-                      <span>
+                      <span className="font-semibold">
                         {service.operation === "multiply"
                           ? "✖️ ضرب"
                           : service.operation === "divide"
@@ -134,6 +146,7 @@ export default function EmployeeDashboard() {
                       />
                     </div>
                   </CardContent>
+
                 </Card>
               )
             })}

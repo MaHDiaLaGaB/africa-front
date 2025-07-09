@@ -33,6 +33,7 @@
     "jwt-decode": "^4.0.0",
     "libphonenumber-js": "^1.12.9",
     "lucide-react": "^0.511.0",
+    "nanoid": "^5.1.5",
     "next": "15.3.2",
     "pdfmake": "^0.2.20",
     "react": "^19.0.0",

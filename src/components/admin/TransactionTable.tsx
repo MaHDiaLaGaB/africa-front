@@ -8,6 +8,8 @@ import { Copy }   from "lucide-react";
 import { toast }  from "sonner";
 import { format } from "date-fns";
 import { TransactionEditModal } from "./TransactionEditForm";
+import { formatCurrency, formatNumber } from "@/lib/utils";
+
 
 
 interface CurrentUser { id: number; username: string; role: "admin" | "employee"; }
@@ -125,18 +127,6 @@ export default function EmployeeTransactionsPage() {
     <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-screen-xl mx-auto space-y-6">
       <h1 className="text-2xl sm:text-3xl font-bold">📋 سجل الحوالات</h1>
 
-      <Card className="p-4 sm:p-6 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* ... filters unchanged ... */}
-        </div>
-        <Button
-          onClick={fetchTxns}
-          disabled={!currentUserId || loading}
-          className="w-full sm:w-auto"
-        >
-          {loading ? "..." : "🔎 تنفيذ الفلترة"}
-        </Button>
-      </Card>
 
       <Card className="p-0 overflow-x-auto">
         {txns.length === 0 ? (
@@ -176,7 +166,7 @@ export default function EmployeeTransactionsPage() {
                   <td className="p-2">{t.id}</td>
                   <td className="p-2 font-mono truncate max-w-[100px]">{t.reference}</td>
                   <td className="p-2">{t.amount_foreign}</td>
-                  <td className="p-2">{t.amount_lyd}</td>
+                  <td className="p-2">{formatCurrency(t.amount_lyd)}</td>
                   <td className="p-2">{servicesMap[t.service_id] || "-"}</td>
                   <td className="p-2">{t.employee_name}</td>
                   <td className="p-2">{t.client_name || "-"}</td>

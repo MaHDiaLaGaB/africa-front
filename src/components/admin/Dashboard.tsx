@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 
 export default function AdminDashboard() {
   const [data, setData] = useState<any>(null);
@@ -85,7 +86,7 @@ export default function AdminDashboard() {
               إجمالي العمليات اليوم
             </p>
             <p className="text-2xl font-bold">
-              {data.total_txns_today}
+              {formatCurrency(data.total_txns_today)}
             </p>
           </CardContent>
         </Card>
@@ -95,7 +96,7 @@ export default function AdminDashboard() {
               قيمة المبيعات (LYD)
             </p>
             <p className="text-2xl font-bold">
-              {data.total_lyd_today.toFixed(2)} LYD
+              {formatCurrency(data.total_lyd_today.toFixed(2))} LYD
             </p>
           </CardContent>
         </Card>
@@ -105,7 +106,7 @@ export default function AdminDashboard() {
               الربح الصافي
             </p>
             <p className="text-2xl font-bold text-green-600">
-              {data.profit_today.toFixed(2)} LYD
+              {formatCurrency(data.profit_today.toFixed(2))}
             </p>
           </CardContent>
         </Card>
@@ -122,7 +123,7 @@ export default function AdminDashboard() {
             {data.top_employees.map((emp: any, idx: number) => (
               <p key={idx} className="text-sm">
                 {idx + 1}. {emp.username} — 💰{" "}
-                {parseFloat(emp.total).toFixed(2)} LYD
+                {formatCurrency(parseFloat(emp.total).toFixed(2))} LYD
               </p>
             ))}
           </CardContent>
@@ -166,7 +167,7 @@ export default function AdminDashboard() {
             {data.top_currencies.map((c: any, idx: number) => (
               <p key={idx} className="text-sm">
                 {idx + 1}. {c.currency} —{" "}
-                {parseFloat(c.used).toFixed(2)}
+                {formatCurrency(parseFloat(c.used).toFixed(2))}
               </p>
             ))}
           </CardContent>

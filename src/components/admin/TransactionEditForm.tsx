@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { formatCurrency } from "@/lib/utils";
 
 // schemas/transactions.ts
 
@@ -164,7 +165,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
             <Label>المبلغ أجنبي</Label>
             <Input
               type="number"
-              value={form.amount_foreign}
+              value={formatCurrency(form.amount_foreign)}
               onChange={(e) => handleChange("amount_foreign", parseFloat(e.target.value))}
             />
           </div>
@@ -172,7 +173,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
             <Label>المبلغ بلليبي</Label>
             <Input
               type="number"
-              value={txn.amount_lyd}  // Use original value from props
+              value={formatCurrency(txn.amount_lyd)}  // Use original value from props
               disabled
               readOnly
             />

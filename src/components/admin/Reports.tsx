@@ -24,6 +24,8 @@ import {
   Legend,
 } from "recharts";
 
+import { formatNumber, formatCurrency } from "@/lib/utils";
+
 export default function AdminReportsPage() {
   const [filters, setFilters] = useState({
     employee_id: "",
@@ -45,6 +47,10 @@ export default function AdminReportsPage() {
     });
     setReport(res.data);
   };
+  const selectedEmployee = employees.find(e => String(e.id) === filters.employee_id);
+  const employeeLabel = selectedEmployee
+  ? (selectedEmployee.full_name || selectedEmployee.username)
+  : "اختيار موظف";
 
   useEffect(() => {
     api.get("/auth/users").then((res) => setEmployees(res.data));
@@ -64,15 +70,15 @@ export default function AdminReportsPage() {
             <Label>الموظف</Label>
             <Select
               value={filters.employee_id}
-              onValueChange={(val) =>
+              onValueChange={val =>
                 setFilters({ ...filters, employee_id: val })
               }
             >
               <SelectTrigger className="w-full">
-                {filters.employee_id || "اختيار موظف"}
+                {employeeLabel}
               </SelectTrigger>
               <SelectContent>
-                {employees.map((e) => (
+                {employees.map(e => (
                   <SelectItem key={e.id} value={String(e.id)}>
                     {e.full_name || e.username}
                   </SelectItem>
@@ -145,11 +151,11 @@ export default function AdminReportsPage() {
         <Card className="p-4 sm:p-6 space-y-3">
           <h2 className="text-lg font-semibold">📋 النتائج</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <p>📦 عدد الحوالات: {report.total_transactions}</p>
-            <p>💸 إجمالي المبلغ المرسل: {report.total_sent_value}</p>
-            <p>💰 إجمالي LYD: {report.total_lyd_collected}</p>
-            <p>🧾 التكلفة: {report.total_cost}</p>
-            <p>📈 الربح: {report.total_profit}</p>
+            <p>📦 عدد الحوالات: {formatNumber(report.total_transactions)}</p>
+            <p>💸 إجمالي المبلغ المرسل: {formatCurrency(report.total_sent_value)}</p>
+            <p>💰 إجمالي LYD: {formatCurrency(report.total_lyd_collected)}</p>
+            <p>🧾 التكلفة: {formatCurrency(report.total_cost)}</p>
+            <p>📈 الربح: {formatCurrency(report.total_profit)} LYD</p>
           </div>
         </Card>
       )}

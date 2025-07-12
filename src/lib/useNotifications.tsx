@@ -20,7 +20,7 @@ export function useWebSocket(
   }
 
     // Create and store WebSocket instance
-    const ws = new WebSocket(`ws://localhost:6699/api/live/ws/${userId}`);
+    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_WS_URL}/api/live/ws/${userId}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

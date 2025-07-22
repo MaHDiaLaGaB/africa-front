@@ -81,7 +81,7 @@ export function TransferCreditModal({
     customerId: "",
     name: "",
     phoneAccount: "",
-    bankCountry: "",
+    bankCity: "",
     amount: "",
     notes: "",
   };
@@ -149,7 +149,7 @@ export function TransferCreditModal({
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCountry : data.bank_name || data.country || prev.bankCountry,
+        bankCountry : data.bank_name || data.country || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setValidationError(data.validation_error || "");
@@ -169,8 +169,8 @@ export function TransferCreditModal({
   };
 
   const handleTransfer = async () => {
-    const { customerId, name, phoneAccount, bankCountry, amount } = form;
-    if ((!customerId && !name) || !phoneAccount || !bankCountry || !amount) {
+    const { customerId, name, phoneAccount, bankCity, amount } = form;
+    if ((!customerId && !name) || !phoneAccount || !bankCity || !amount) {
       toast.error("يرجى تعبئة جميع الحقول أو اختيار عميل مسجل");
       return;
     }
@@ -187,7 +187,7 @@ export function TransferCreditModal({
         payment_type  : "credit",
         customer_id   : customerId ? +customerId : undefined,
         customer_name : name,
-        to            : bankCountry,
+        to            : bankCity,
         number        : phoneAccount,
         notes         : form.notes,
       });
@@ -223,7 +223,7 @@ export function TransferCreditModal({
                     value={form.customerId}
                     onChange={(e) => {
                       const cust = customers.find(c => c.id === +e.target.value);
-                      setForm(f => ({ ...f, customerId: e.target.value, name: cust?.name || "" }));
+                      setForm(f => ({ ...f, customerId: e.target.value }));
                     }}>
                     <option value="">-- بدون اختيار --</option>
                     {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -289,7 +289,7 @@ export function TransferCreditModal({
                 </Field>
 
                 <Field label="البنك / الدولة">
-                  <Input value={form.bankCountry} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
+                  <Input value={form.bankCity} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
                 </Field>
 
                 <Field label="المبلغ الأجنبي">

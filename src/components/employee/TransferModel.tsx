@@ -67,7 +67,7 @@ function ModeSwitch({
  * ---------------------------------------------------------------- */
 export default function TransferModal({ service, onSuccess }: { service: any; onSuccess: () => void }) {
   /* ------------ state ------------ */
-  const initialForm = { name: "", phoneAccount: "", bankCountry: "", amount: "", notes: "" };
+  const initialForm = { name: "", phoneAccount: "", bankCity: "", amount: "", notes: "" };
   const [open, setOpen]             = useState(false);
   const [form, setForm]             = useState(initialForm);
   const [inputMode, setInputMode]   = useState<"phone" | "account">("phone");
@@ -115,7 +115,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCountry : data.bank_name   || data.country || prev.bankCountry,
+        bankCity : data.bank_name   || data.country || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setPhoneAccountValid(data.phone_number_valid === "yes");
@@ -138,8 +138,8 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
 
   /* ------------ submit ------------ */
   const handleTransfer = async () => {
-  const { name, phoneAccount, bankCountry, amount } = form;
-  if (!name || !phoneAccount || !bankCountry || !amount) {
+  const { name, phoneAccount, bankCity, amount } = form;
+  if (!name || !phoneAccount || !bankCity || !amount) {
     toast.error("يرجى تعبئة جميع الحقول");
     return;
   }
@@ -155,7 +155,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
       amount_foreign: parseFloat(form.amount),
       payment_type  : "cash",
       customer_name : form.name,
-      to            : form.bankCountry,
+      to            : form.bankCity,
       number        : form.phoneAccount,
       notes         : form.notes,
     });
@@ -254,7 +254,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
                 </Field>
 
                 <Field label="البنك / الدولة">
-                  <Input value={form.bankCountry} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
+                  <Input value={form.bankCity} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
                 </Field>
 
                 <Field label="المبلغ الأجنبي">

@@ -115,7 +115,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCity : data.bank_name   || data.city || prev.bankCity,
+        bankCity : data.bank_name || data.city || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setPhoneAccountValid(data.phone_number_valid === "yes");

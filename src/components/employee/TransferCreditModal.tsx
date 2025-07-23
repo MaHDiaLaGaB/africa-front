@@ -150,7 +150,7 @@ export function TransferCreditModal({
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCountry : data.bank_name || data.city || prev.bankCity,
+        bankCity : data.bank_name || data.city || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setValidationError(data.validation_error || "");

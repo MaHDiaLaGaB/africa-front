@@ -290,7 +290,7 @@ export function TransferCreditModal({
                 </Field>
 
                 <Field label="البنك / الدولة">
-                  <Input value={form.bankCity} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
+                  <Input value={form.bankCity} onChange={(e) => setForm(f => ({ ...f, bankCity: e.target.value }))} />
                 </Field>
 
                 <Field label="المبلغ الأجنبي">

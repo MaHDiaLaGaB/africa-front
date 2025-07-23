@@ -144,12 +144,13 @@ export function TransferCreditModal({
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
+      console.log("Parsed data:", data);
 
       setForm(prev => ({
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCountry : data.bank_name || data.country || prev.bankCity,
+        bankCountry : data.bank_name || data.city || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setValidationError(data.validation_error || "");

@@ -42,7 +42,7 @@ function ModeSwitch({
     <div className={cn("flex items-center gap-1 text-sm", className)}>
       <button
         className={cn(
-          "px-2 py-1 rounded-md transition",
+          "px-2 py-1 rounded-md active:scale-95 transition-transform",
           mode === "phone" ? "bg-primary text-white" : "bg-muted"
         )}
         onClick={() => onChange("phone")}
@@ -51,7 +51,7 @@ function ModeSwitch({
       </button>
       <button
         className={cn(
-          "px-2 py-1 rounded-md transition",
+          "px-2 py-1 rounded-md active:scale-95 transition-transform",
           mode === "account" ? "bg-primary text-white" : "bg-muted"
         )}
         onClick={() => onChange("account")}
@@ -66,8 +66,14 @@ function ModeSwitch({
  * main component
  * ---------------------------------------------------------------- */
 export default function TransferModal({ service, onSuccess }: { service: any; onSuccess: () => void }) {
+
+  interface CurrencyOut {
+    id: number;
+    name: string;
+    symbol: string;
+}
   /* ------------ state ------------ */
-  const initialForm = { name: "", phoneAccount: "", bankCountry: "", amount: "", notes: "" };
+  const initialForm = { name: "", phoneAccount: "", bankCity: "", amount: "", notes: "" };
   const [open, setOpen]             = useState(false);
   const [form, setForm]             = useState(initialForm);
   const [inputMode, setInputMode]   = useState<"phone" | "account">("phone");
@@ -76,9 +82,18 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
   const [phoneAccountValid, setPhoneAccountValid] = useState<boolean | null>(null);
   const [validationError, setValidationError] = useState("");
   const [calculatedLYD, setCalculatedLYD]     = useState<number | null>(null);
+  const [currencySym, setCurrencySym] = useState<string>("");
 
   const [isLoading,  setIsLoading]  = useState(false);
   const [didSucceed, setDidSucceed] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      api.get<CurrencyOut>(`/currency/currencies/${service.currency_id}`)
+        .then(res => setCurrencySym(res.data.symbol))
+        .catch(() => setCurrencySym(""));
+    }
+  }, [open, service.currency_id]);
 
   /* ------------ country dial prefix ------------ */
   const iso = service.country_code || service.countryCode || service.country || "LY";
@@ -115,7 +130,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
         ...prev,
         name        : data.full_name || prev.name,
         phoneAccount: data.account_number || data.phone_number || prev.phoneAccount,
-        bankCountry : data.bank_name   || data.country || prev.bankCountry,
+        bankCity : data.bank_name || data.city || prev.bankCity,
       }));
       setAccountValid(data.account_number_valid === "yes");
       setPhoneAccountValid(data.phone_number_valid === "yes");
@@ -138,8 +153,8 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
 
   /* ------------ submit ------------ */
   const handleTransfer = async () => {
-  const { name, phoneAccount, bankCountry, amount } = form;
-  if (!name || !phoneAccount || !bankCountry || !amount) {
+  const { name, phoneAccount, bankCity, amount } = form;
+  if (!name || !phoneAccount || !bankCity || !amount) {
     toast.error("يرجى تعبئة جميع الحقول");
     return;
   }
@@ -155,7 +170,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
       amount_foreign: parseFloat(form.amount),
       payment_type  : "cash",
       customer_name : form.name,
-      to            : form.bankCountry,
+      to            : form.bankCity,
       number        : form.phoneAccount,
       notes         : form.notes,
     });
@@ -166,7 +181,7 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
     Name: ${txn.customer_name}
     Number: ${txn.number}
     To: ${txn.to}
-    Money: ${txn.amount_foreign} (${txn.amount_lyd} LYD)
+    Money: ${txn.amount_foreign} ${currencySym}
     ${txn.notes ? `Note: ${txn.notes}` : ''}
     `.trim();
 
@@ -210,10 +225,18 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
               <Card className="border-0 shadow-none p-4 sm:p-6 space-y-4">
                 {/* buttons + switch */}
                 <div className="flex flex-row flex-wrap items-center gap-2">
-                  <Button variant="secondary" onClick={handlePaste} className="flex-none">
+                  <Button
+                    variant="secondary"
+                    onClick={handlePaste}
+                    className="flex-none active:scale-95 transition-transform"
+                  >
                     <ClipboardPaste className="h-4 w-4 ml-1" /> لصق من الحافظة
                   </Button>
-                  <Button variant="secondary" onClick={handleClear} className="flex-none">
+                  <Button
+                    variant="secondary"
+                    onClick={handleClear}
+                    className="flex-none active:scale-95 transition-transform"
+                  >
                     <Trash2 className="h-4 w-4 ml-1" /> مسح الحقول
                   </Button>
 
@@ -244,17 +267,31 @@ export default function TransferModal({ service, onSuccess }: { service: any; on
                     value={form.phoneAccount}
                     onChange={(e) => {
                       setForm(f => ({ ...f, phoneAccount: e.target.value }));
-                      setAccountValid(null); setValidationError("");
+                      // reset the right validator:
+                      if (inputMode === "phone") setPhoneAccountValid(null);
+                      else setAccountValid(null);
+                      setValidationError("");
                     }}
-                    className={cn("text-left",accountValid === false && "border-red-500 focus-visible:ring-red-500")}
+                    className={cn(
+                      "text-left",
+                      // only turn red when that mode’s valid flag is explicitly false
+                      inputMode === "phone"
+                        ? phoneAccountValid === false && "border-red-500 focus-visible:ring-red-500"
+                        : accountValid      === false && "border-red-500 focus-visible:ring-red-500"
+                    )}
                   />
+                  {/* show the error text only for the active mode */}
+                  {inputMode === "phone" && phoneAccountValid === false && validationError && (
+                    <p className="text-xs text-red-600 mt-1">{validationError}</p>
+                  )}
                   {inputMode === "account" && accountValid === false && validationError && (
                     <p className="text-xs text-red-600 mt-1">{validationError}</p>
                   )}
                 </Field>
 
+
                 <Field label="البنك / الدولة">
-                  <Input value={form.bankCountry} onChange={(e) => setForm(f => ({ ...f, bankCountry: e.target.value }))} />
+                  <Input value={form.bankCity} onChange={(e) => setForm(f => ({ ...f, bankCity: e.target.value }))} />
                 </Field>
 
                 <Field label="المبلغ الأجنبي">

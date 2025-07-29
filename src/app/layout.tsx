@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ClientProviders from "@/components/auth/ClientProviders";
+import { Toaster } from "sonner";
 import "./globals.css";
 // import NotificationBell from "@/components/layout/NotificationBell";
 
@@ -30,6 +31,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-muted`}
       >
         <ClientProviders>{children}</ClientProviders>
+        <Toaster richColors />
       </body>
     </html>
   );

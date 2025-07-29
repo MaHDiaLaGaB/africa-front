@@ -28,100 +28,154 @@ export async function POST(req: NextRequest) {
   const extractionPrompt = `
 **System**
 You are a senior compliance officer and data-extraction engine.
-Your job: read a raw clipboard message, extract key fields, validate the chosen identifier (phone OR account), and return a strict JSON object.
+Your job is to read a raw clipboard message sent by a customer, identify financial fields, and return a strict JSON object.
+You also validate bank-account numbers according to each country's official standard.
+
+**Knowledge**
+• For IBAN-enabled countries, validate using IBAN length + checksum.
+• For non-IBAN countries, validate length and character set per your reference table (e.g. LY = 23 digits, NG = 10 digits, US = 9/12-17 digits, …).
 
 **Input Parameters**
-country_code = "${countryCode}"        # ISO-2, e.g. "LY", "NG"
-id_mode      = "${idMode}"             # "phone" | "account"
-text         = """${clipboard}"""
+country_code = "${countryCode}"
+id_mode = "${idMode}"  # "phone" | "account"
+text = """${clipboard}"""
 
-**What to Extract (in order)**
-1. full_name  = first clear person/company name (≥2 words, alphabetic).
-2. bank_name  = any known bank/fintech brand. If you set this, DO NOT set city.
-3. city       = only if NO bank_name is found. Detect a city (not a country); ignore country words.
-4. Depending on id_mode:
-   - "phone"   ⇒ return first valid phone number, no account_number.
-   - "account" ⇒ return longest valid account number, no phone_number.
-
-**Global Numeric Ignore Rules**
-Ignore any numeric token that:
-- Looks like a money amount (has currency words/symbols or thousand/decimal separators).
-- Is < 6 digits or clearly an OTP/PIN (surrounded by “code”, “otp”, “pin”…).
-
-**Phone Validation (id_mode = "phone")**
-- Normalize: remove spaces/dashes/parentheses; keep leading “+”.
-- If number starts with “+”, its country calling code must match country_code.
-- Otherwise, accept a local format if length matches an allowed NSN length (see COUNTRY_PHONE_RULES).
-- If allow_leading_zero = true, one leading “0” is allowed.
-- Mark {phone_number_valid} = "yes" if it fits length & pattern; else "no" and fill {validation_error} briefly.
-
-**Account Validation (id_mode = "account")**
-- Choose the longest digit/alnum sequence compatible with COUNTRY_ACCOUNT_RULES.
-- IBAN: exact length + MOD-97 == 1.
-- Non-IBAN: just check length & charset; run checksum if defined (e.g., NG NUBAN).
-- Mark {account_number_valid} = "yes" if it passes; else "no" with short {validation_error}.
-
-**Country Rules (examples, extend as needed)**
-COUNTRY_PHONE_RULES = {
-"NG": { "country_calling_code":"234", "nsn_lengths":[10,11], "allow_leading_zero":true },
-"LY": { "country_calling_code":"218", "nsn_lengths":[9], "allow_leading_zero":true },
-"US": { "country_calling_code":"1", "nsn_lengths":[10], "allow_leading_zero":false }
-/* extend as needed */
-}
-
-COUNTRY_ACCOUNT_RULES = {
-"NG": { "type":"NUBAN", "length":10, "charset":"digits" },
-"LY": { "type":"LOCAL", "length":23, "charset":"digits" },
-"US": { "type":"LOCAL", "length_range":[9,12,17], "charset":"digits" },
-"DE": { "type":"IBAN", "length":22, "charset":"alnum" }
-/* extend as needed */
-}
+**Extraction Rules**
+if id_mode is "phone":
+- return the first phone-like pattern found.
+- extract full_name, phone_number, and city (if no bank_name is found).
+- do NOT return account_number or bank_name if not present.
+- If words are joined by dots (e.g., "Aboubakar.damagaram.ta.kaya"), treat them as separate words — assume dots are word boundaries.
 
 
-**Output (STRICT JSON, no markdown, no extra keys)**
+if id_mode is "account":
+- return the longest digit(/letter) sequence matching the expected pattern from the country_code.
+- always try to extract and return a bank_name if mentioned in the text.
+- fall back to city only if bank_name is not found.
+- do NOT return phone_number.
+
+1. full_name = the first explicit person or company name found.
+2. bank_name = any bank or financial institution name;
+   ⛔ If you find one, DO NOT include city in output.
+   ✅ If id_mode is "account", always return the bank_name if it exists.
+3. city = native-language city label *only* if bank_name is missing.
+4. account_number = the longest digit(/letter) sequence matching the expected pattern.
+5. phone_number = the first phone-like pattern (allow “+”, spaces, dashes), then normalize:
+   - Replace "+" with "00"
+   - If number does not start with "0" or "00", add leading "0"
+
+
+**Validation Rules**
+• account_number_valid = "yes" if format (and checksum when applicable) passes, else "no".
+• If invalid, add a short human-readable reason to validation_error.
+
+**Phone Number Normalization**
+• If phone_number starts with "+", replace it with "00".
+• If phone_number does not start with "0", prepend "0".
+• Do not return any phone number starting with "+" or lacking a leading "0" or "00".
+
+
+Note:
+- If id_mode is "phone", do not return account_number.
+- If id_mode is "account", do not return phone_number.
+
+---
+
+**Examples**
+
+📌 These real-world examples illustrate tricky cases where names and cities/banks are on the same line:
+
+**Example 1 (id_mode = "phone")**
+Ww8470
+86632243 Adamou baboul gorangobachi 70 000
+
+✅ Extracted as:
 {
-  "full_name": "",
-  "phone_number": "",
+  "full_name": "Adamou",
+  "phone_number": "086632243",
   "bank_name": "",
-  "city": "",
+  "city": "baboul gorangobachi",
   "account_number": "",
-  "account_number_valid": "yes|no",
-  "phone_number_valid": "yes|no",
+  "account_number_valid": "no",
+  "phone_number_valid": "yes",
   "validation_error": ""
 }
 
-**Mandatory Constraints**
-- Always include all keys. Use "" for not-applicable fields.
-- If id_mode = "phone": account_number = "" and account_number_valid = "no".
-- If id_mode = "account": phone_number = "" and phone_number_valid = "no".
-- If bank_name is set, city must be "".
-- Respond ONLY with the JSON.
+Example 2 (id_mode = "phone")
 
-**Example (id_mode="account", country_code="NG")**
-Input:
-  HALIMA SULAIMAN
-  9035941238
-  PALMPAY
-  NERA 5000
-
-Output:
+Ww8474  
+98553891 Ibourhm ahmani Bonkoukou 30 000
+✅ Extracted as:
 {
-  "full_name": "HALIMA SULAIMAN",
+  "full_name": "Ibourhm",
+  "phone_number": "098553891",
+  "bank_name": "",
+  "city": "Bonkoukou",
+  "account_number": "",
+  "account_number_valid": "no",
+  "phone_number_valid": "yes",
+  "validation_error": ""
+}
+
+Example 3 (id_mode = "account") - Nigeria
+02______5  
+0781349933  
+Muhammad zabariyya G T  
+10,000 nre
+
+G T is a bank name in nigeria, so we extract it.
+
+✅ Extracted as:
+{
+  "full_name": "Muhammad zabariyya",
   "phone_number": "",
-  "bank_name": "PALMPAY",
+  "bank_name": "G T",
   "city": "",
-  "account_number": "9035941238",
+  "account_number": "0781349933",
   "account_number_valid": "yes",
   "phone_number_valid": "no",
   "validation_error": ""
 }
+
+Example 4 (id_mode = "phone") - dot-separated words
+Ww8475  
+Aboubakar.damagaram.ta.kaya.5.000  
+96316152
+
+✅ Extracted as:
+{
+  "full_name": "Aboubakar",
+  "phone_number": "096316152",
+  "bank_name": "",
+  "city": "damagaram takaya",
+  "account_number": "",
+  "account_number_valid": "no",
+  "phone_number_valid": "yes",
+  "validation_error": ""
+}
+
+
+Output Format (strict JSON, no extra keys)
+{
+"full_name": "",
+"phone_number": "",
+"bank_name": "",
+"city": "",
+"account_number": "",
+"account_number_valid": "yes|no",
+"phone_number_valid": "yes|no",
+"validation_error": ""
+}
+
+Respond ONLY with the JSON. Do NOT wrap it in Markdown.
+
 `.trim();
 
 
 
   // 3 ️⃣  Call the model (default to GPT-4o-mini or fallback)
   const { text: llmOutput } = await generateText({
-  model: openai("gpt-4o"),
+  model: openai("gpt-4o-mini"),
   prompt: extractionPrompt
     .replace("{{countryCode}}", countryCode)
     .replace("{{idMode}}",     idMode)        // "phone" | "account"

@@ -1,31 +1,40 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
-import { Card }   from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge }  from "@/components/ui/badge";
-import { Copy }   from "lucide-react";
-import { toast }  from "sonner";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Copy } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
+import {
+  PaymentType, // still used for rendering existing rows
+  TransactionStatus,
+} from "./TransactionEditForm";
 import { TransactionEditModal } from "./TransactionEditForm";
-import { formatCurrency, formatNumber } from "@/lib/utils";
+import { formatCurrency } from "@/lib/utils";
 
-
-
-interface CurrentUser { id: number; username: string; role: "admin" | "employee"; }
-interface ServiceOut   { id: number; name: string; }
-
-
-export enum PaymentType {
-  cash = "cash",
-  credit = "credit",
+// -----------------------------------------------------------------------------
+// Types
+// -----------------------------------------------------------------------------
+interface CurrentUser {
+  id: number;
+  username: string;
+  role: "admin" | "employee";
 }
 
-export enum TransactionStatus {
-  pending   = "pending",
-  completed = "completed",
-  cancelled = "cancelled",
+interface ServiceOut {
+  id: number;
+  name: string;
 }
+
 export interface Transaction {
   id: number;
   reference: string;
@@ -43,6 +52,9 @@ export interface Transaction {
   client_name?: string;
 }
 
+// -----------------------------------------------------------------------------
+// Helper hooks & utils
+// -----------------------------------------------------------------------------
 function useCurrentUser() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   useEffect(() => {
@@ -58,13 +70,16 @@ function useCurrentUser() {
   return user;
 }
 
-const statusLabel = (s: string) => ({
-  pending: "قيد التنفيذ",
-  completed: "مكتملة",
-  cancelled: "ملغاة"
-}[s] ?? s);
+const statusLabel = (s: TransactionStatus) =>
+  (
+    {
+      pending: "قيد التنفيذ",
+      completed: "مكتملة",
+      cancelled: "ملغاة",
+    } as const
+  )[s] ?? s;
 
-const statusColor = (s: string) =>
+const statusColor = (s: TransactionStatus) =>
   s === "completed"
     ? "default"
     : s === "cancelled"
@@ -73,26 +88,24 @@ const statusColor = (s: string) =>
     ? "outline"
     : "secondary";
 
-const paymentLabel = (p: string) =>
-  p === "cash"
-    ? "نقدًا"
-    : p === "credit"
-    ? "دين"
-    : p;
+const paymentLabel = (p: PaymentType) =>
+  p === "cash" ? "نقدًا" : p === "credit" ? "دين" : p;
 
+// -----------------------------------------------------------------------------
+// Component
+// -----------------------------------------------------------------------------
 export default function EmployeeTransactionsPage() {
-  const [status, setStatus] = useState("all");
-  const [paymentType, setPaymentType] = useState("all");
-  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  // فلترة الحالة والتاريخ فقط
+  const [status, setStatus] = useState<TransactionStatus | "all">("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const [txns, setTxns] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(false);
-
   const currentUser = useCurrentUser();
-  const currentUserId = currentUser?.id;
-
   const [servicesMap, setServicesMap] = useState<Record<number, string>>({});
+
+  // جلب الخدمات لمرة واحدة (لإظهار أسمائها)
   useEffect(() => {
     api.get<ServiceOut[]>("/services/get/available").then((res) => {
       const m: Record<number, string> = {};
@@ -101,37 +114,103 @@ export default function EmployeeTransactionsPage() {
     });
   }, []);
 
-  const fetchTxns = async () => {
-    if (!currentUserId) return;
-    setLoading(true);
-
-    const params: Record<string, string> = {};
-    if (status !== "all") params.status = status;
-    if (paymentType !== "all") params.payment_type = paymentType;
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-
-    const { data } = await api.get<Transaction[]>(
-      "/transactions/get",
-      { params }
-    );
-    setTxns(data);
-    setLoading(false);
-  };
-
+  // جلب الحوالات مرة واحدة بعد معرفة المستخدم الحالي
   useEffect(() => {
-    if (currentUserId) fetchTxns();
-  }, [currentUserId]);
+    if (!currentUser) return;
+    (async () => {
+      setLoading(true);
+      try {
+        const { data } = await api.get<Transaction[]>("/transactions/get", {
+          params: { employee_id: currentUser.id },
+        });
+        setTxns(data);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [currentUser]);
 
+  // فلترة محلية بالتاريخ والحالة
+  const filteredTxns = useMemo(() => {
+    return txns.filter((t) => {
+      // الحالة
+      if (status !== "all" && t.status !== status) return false;
+
+      // التاريخ
+      const created = new Date(t.created_at);
+      if (startDate && created < new Date(startDate)) return false;
+      if (endDate && created > new Date(endDate)) return false;
+
+      return true;
+    });
+  }, [txns, status, startDate, endDate]);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 max-w-screen-xl mx-auto space-y-6">
       <h1 className="text-2xl sm:text-3xl font-bold">📋 سجل الحوالات</h1>
 
+      {/* لوحة الفلاتر */}
+      <Card className="p-4 sm:p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="text-sm sm:text-base">الحالة</label>
+            <Select
+              value={status}
+              onValueChange={(v) => setStatus(v as TransactionStatus | "all")}
+            >
+              <SelectTrigger className="w-full">
+                {status === "all" ? "كل الحالات" : statusLabel(status)}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">كل الحالات</SelectItem>
+                <SelectItem value="pending">قيد التنفيذ</SelectItem>
+                <SelectItem value="completed">مكتملة</SelectItem>
+                <SelectItem value="cancelled">ملغاة</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
+          <div>
+            <label className="text-sm sm:text-base">من تاريخ</label>
+            <Input
+              dir="ltr"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-sm sm:text-base">إلى تاريخ</label>
+            <Input
+              dir="ltr"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* زر اختياري – يكتفي بتفعيل إعادة الحساب */}
+        <Button
+          disabled={loading}
+          onClick={() => toast.info("تم تطبيق الفلترة موضعيًا")}
+          className="w-full sm:w-auto"
+        >
+          🔎 تنفيذ الفلترة
+        </Button>
+      </Card>
+
+      {/* جدول الحوالات */}
       <Card className="p-0 overflow-x-auto">
-        {txns.length === 0 ? (
+        {loading ? (
+          <p className="p-6 text-center text-sm sm:text-base">جاري التحميل…</p>
+        ) : filteredTxns.length === 0 ? (
           <p className="p-6 text-center text-sm sm:text-base text-muted-foreground">
-            لا توجد حوالات.
+            لا توجد حوالات مطابقة للفلتر الحالي.
           </p>
         ) : (
           <table className="min-w-full text-right text-xs sm:text-sm">
@@ -157,14 +236,13 @@ export default function EmployeeTransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {txns.map((t, i) => (
-                <tr
-                  key={`txn-${t.id}-${i}`}
-                  className="border-b hover:bg-gray-50"
-                >
+              {filteredTxns.map((t, i) => (
+                <tr key={`txn-${t.id}-${i}`} className="border-b hover:bg-gray-50">
                   <td className="p-2 font-medium">{i + 1}</td>
                   <td className="p-2">{t.id}</td>
-                  <td className="p-2 font-mono truncate max-w-[100px]">{t.reference}</td>
+                  <td className="p-2 font-mono truncate max-w-[100px]">
+                    {t.reference}
+                  </td>
                   <td className="p-2">{t.amount_foreign}</td>
                   <td className="p-2">{formatCurrency(t.amount_lyd)}</td>
                   <td className="p-2">{servicesMap[t.service_id] || "-"}</td>
@@ -175,26 +253,49 @@ export default function EmployeeTransactionsPage() {
                   <td className="p-2">{paymentLabel(t.payment_type)}</td>
                   <td className="p-2">{t.to}</td>
                   <td className="p-2">
-                    <Badge variant={statusColor(t.status)} className="uppercase text-[10px]">
+                    <Badge
+                      variant={statusColor(t.status)}
+                      className="uppercase text-[10px]"
+                    >
                       {statusLabel(t.status)}
                     </Badge>
                   </td>
                   <td className="p-2">{t.notes || "-"}</td>
-                  <td className="p-2">{new Date(t.created_at).toLocaleDateString()}</td>
+                  <td className="p-2">
+                    {new Date(t.created_at).toLocaleDateString()}
+                  </td>
                   <td className="p-2">
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="active:scale-95 transition-transform"
                       onClick={() => {
-                        navigator.clipboard.writeText(t.reference);
-                        toast.success("تم نسخ المرجع");
+                        const entries = [
+                          `#${i + 1}`,
+                          `ID: ${t.id}`,
+                          `Reference: ${t.reference}`,
+                          `Amount (Foreign): ${t.amount_foreign}`,
+                          `Amount (LYD): ${formatCurrency(t.amount_lyd)}`,
+                          `Service: ${servicesMap[t.service_id] || "-"}`,
+                          `Employee: ${t.employee_name}`,
+                          `Client: ${t.client_name || "-"}`,
+                          `Customer: ${t.customer_name || "-"}`,
+                          `Phone: ${t.number || ""}`,
+                          `Payment Type: ${paymentLabel(t.payment_type)}`,
+                          `To: ${t.to || ""}`,
+                          `Status: ${statusLabel(t.status)}`,
+                          `Notes: ${t.notes || "-"}`,
+                          `Date: ${new Date(t.created_at).toLocaleDateString()}`,
+                        ];
+                        navigator.clipboard.writeText(entries.join("\n"));
+                        toast.success("Row copied!");
                       }}
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
                   </td>
                   <td className="p-2">
-                    <TransactionEditModal txn={t} onSaved={fetchTxns} />
+                    <TransactionEditModal txn={t} onSaved={() => {}} />
                   </td>
                 </tr>
               ))}
@@ -205,4 +306,3 @@ export default function EmployeeTransactionsPage() {
     </div>
   );
 }
-

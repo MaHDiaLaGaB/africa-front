@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* @import "sonner/dist/sonner.css"; */
+/* @import "shadcn-ui/tailwind.css"; */
+
 
 @custom-variant dark (&:is(.dark *));
 

@@ -45,6 +45,7 @@ export default function AdminReportsPage() {
         service_name: filters.service_name || undefined,
       },
     });
+    console.log("Report data:", res.data);
     setReport(res.data);
   };
   const selectedEmployee = employees.find(e => String(e.id) === filters.employee_id);
@@ -151,11 +152,11 @@ export default function AdminReportsPage() {
         <Card className="p-4 sm:p-6 space-y-3">
           <h2 className="text-lg font-semibold">📋 النتائج</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <p>📦 عدد الحوالات: {formatNumber(report.total_transactions)}</p>
-            <p>💸 إجمالي المبلغ المرسل: {formatCurrency(report.total_sent_value)}</p>
-            <p>💰 إجمالي LYD: {formatCurrency(report.total_lyd_collected)}</p>
-            <p>🧾 التكلفة: {formatCurrency(report.total_cost)}</p>
-            <p>📈 الربح: {formatCurrency(report.total_profit)} LYD</p>
+            <p>📦 عدد الحوالات: {(report.total_transactions)}</p>
+            <p>💸 إجمالي المبلغ المرسل: {(report.total_sent_value)}</p>
+            <p>💰 إجمالي LYD: {(report.total_lyd_collected)}</p>
+            <p>🧾 التكلفة: {(report.total_cost)}</p>
+            <p>📈 الربح: {(report.total_profit)} LYD</p>
           </div>
         </Card>
       )}

@@ -105,12 +105,13 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
     // }
 
     // Update other fields via general endpoint
+    console.log(`the status form is ${form.status} and the status from txn is ${txn.status}`);
     const updateData: any = { ...form };
     delete updateData.client_name;
     delete updateData.created_at;
     delete updateData.amount_lyd;
     delete updateData.created_at;
-    // console.log(`updated data is ${JSON.stringify(updateData)}\n the id is ${txn.id}`)
+    console.log(`updated data is ${JSON.stringify(updateData)}\n the id is ${txn.id}`)
     const res = await api.put(`/transactions/update/${txn.id}`, updateData);
     console.log("Update response:", res.data);
     toast.success("تم حفظ التعديلات");
@@ -165,7 +166,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
             <Label>المبلغ أجنبي</Label>
             <Input
               type="number"
-              value={formatCurrency(form.amount_foreign)}
+              value={form.amount_foreign}
               onChange={(e) => handleChange("amount_foreign", parseFloat(e.target.value))}
             />
           </div>
@@ -173,7 +174,7 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
             <Label>المبلغ بلليبي</Label>
             <Input
               type="number"
-              value={formatCurrency(txn.amount_lyd)}  // Use original value from props
+              value={txn.amount_lyd}  // Use original value from props
               disabled
               readOnly
             />

@@ -114,6 +114,7 @@ export default function CustomerDetailsPage() {
       "أجنبي","دينار","حالة","إلى","رقم","ملاحظات"
     ]];
     const body = [
+      // all the normal transaction rows…
       ...transactions.map((t) => [
         new Date(t.created_at).toLocaleDateString("ar-LY"),
         t.reference,
@@ -126,11 +127,24 @@ export default function CustomerDetailsPage() {
         t.number,
         t.notes || "-",
       ]),
+
+      // receipts: merge columns 2–9 into one “Receipt” cell, leave amount in the last column
       ...receipts.map((r) => [
+        // 1st column: date
         new Date(r.created_at).toLocaleDateString("ar-LY"),
-        "-", "-", "-", "-", "-",
-        "-", "-", customer.name,
-        "-", "-", r.amount.toString(),
+
+        // 2nd cell: spans the next 8 columns (ref, service, pay‑type, foreign, lyd, status, to, number)
+        {
+          content: "سداد دفعة",
+          colSpan: 8,
+          styles:  {
+        halign: "center",
+        fontStyle: "bold" as const
+      } as any,
+        },
+
+        // 3rd cell (actually ends up in the 10th column): the receipt amount
+        r.amount.toString(),
       ]),
     ];
 

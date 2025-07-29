@@ -72,7 +72,7 @@ export default function ReceiptOrdersPage() {
               </SelectTrigger>
               <SelectContent>
                 {customers.map((c) => (
-                  <SelectItem key={c.id} value={String(c.id)}>
+                  <SelectItem key={c.id} value={String(c.name)}>
                     {c.name} ({c.phone}) - 💰 {c.balance_due} LYD
                   </SelectItem>
                 ))}

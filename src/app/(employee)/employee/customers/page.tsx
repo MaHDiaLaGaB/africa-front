@@ -1,5 +1,5 @@
-import CustomersPage from "@/components/employee/EmployeeCustomer";
+import AdminCustomers from "@/components/employee/CustomersList";
 
 export default function Page() {
-  return <CustomersPage />;
+  return <AdminCustomers />;
 }

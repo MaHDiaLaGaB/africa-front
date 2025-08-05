@@ -65,12 +65,20 @@ const getCountryName = (code: string) => {
 /* ---------- المكوّن ---------- */
 
 export default function AdminServicesPage() {
-  /* الحالة */
+  /* الحالة العامة */
   const [currencies, setCurrencies] = useState<Currency[]>([]);
   const [groups, setGroups] = useState<ServiceGroup[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [deletingIds, setDeletingIds] = useState<number[]>([]);
   const [activatingIds, setActivatingIds] = useState<number[]>([]);
+
+  /* حالة التعديل */
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editLoading, setEditLoading] = useState(false);
+
+  /* نموذج الإنشاء */
   const [form, setForm] = useState({
     name: "",
     price: "",
@@ -115,7 +123,7 @@ export default function AdminServicesPage() {
     try {
       await api.delete(`/services/delete/${id}`);
       toast.success("✅ تم حذف الخدمة");
-      await fetchServices();
+      fetchServices();
     } catch {
       toast.error("فشل في حذف الخدمة");
     } finally {
@@ -123,29 +131,58 @@ export default function AdminServicesPage() {
     }
   };
 
-  /* ---------- تفعيل خدمة ---------- */
+  /* ---------- تفعيل/تعطيل خدمة ---------- */
   const handleActivate = async (id: number) => {
     setActivatingIds((ids) => [...ids, id]);
     try {
       await api.patch(`/services/${id}/activate`);
-      toast.success("✅ تم تفعيل الخدمة");
-      await fetchServices();
+      toast.success("✅ تم تحديث حالة الخدمة");
+      fetchServices();
     } catch {
-      toast.error("فشل في تفعيل الخدمة");
+      toast.error("فشل في تحديث حالة الخدمة");
     } finally {
       setActivatingIds((ids) => ids.filter((x) => x !== id));
     }
   };
 
-  /* ---------- إرسال النموذج ---------- */
+  /* ---------- تعديل خدمة ---------- */
+  const startEditService = (srv: Service) => {
+    setEditingServiceId(srv.id);
+    setEditName(srv.name);
+    setEditPrice(String(srv.price));
+  };
+  const cancelEditService = () => {
+    setEditingServiceId(null);
+    setEditName("");
+    setEditPrice("");
+  };
+  const handleSaveService = async (id: number) => {
+    if (!editName.trim() || !editPrice.trim()) {
+      return toast.error("يرجى تعبئة الاسم والسعر");
+    }
+    setEditLoading(true);
+    try {
+      await api.patch(`/services/update/${id}`, {
+        name: editName.trim(),
+        price: Number(editPrice),
+      });
+      toast.success("✅ تم تحديث الخدمة");
+      cancelEditService();
+      fetchServices();
+    } catch {
+      toast.error("فشل في تحديث الخدمة");
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  /* ---------- إنشاء خدمة جديدة ---------- */
   const handleSubmit = async () => {
     if (!form.name || !form.price || !form.currency_id || !form.country_code) {
       toast.error("يرجى تعبئة جميع الحقول المطلوبة");
       return;
     }
-
     setSubmitting(true);
-
     try {
       await api.post("/admin/create", {
         name: form.name,
@@ -159,18 +196,10 @@ export default function AdminServicesPage() {
           code: form.country_code,
         },
       });
-
       toast.success("✅ تم إنشاء الخدمة بنجاح");
-      setForm({
-        name: "",
-        price: "",
-        country_code: "",
-        currency_id: "",
-        operation: "multiply",
-      });
-      await fetchServices();
-    } catch (err) {
-      console.error(err);
+      setForm({ name: "", price: "", country_code: "", currency_id: "", operation: "multiply" });
+      fetchServices();
+    } catch {
       toast.error("فشل في إنشاء الخدمة");
     } finally {
       setSubmitting(false);
@@ -180,53 +209,47 @@ export default function AdminServicesPage() {
   /* ---------- الواجهة ---------- */
   return (
     <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6 max-w-screen-lg mx-auto">
-      {/* إضافة خدمة جديدة */}
-      <h1 className="text-2xl font-bold">إضافة خدمة جديدة</h1>
+      {/* نموذج إضافة/إنشاء خدمة */}
+      <h1 className="text-2xl font-bold">إدارة الخدمات</h1>
       <Card className="p-4 sm:p-6 space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {/* اسم الخدمة */}
-          <div className="w-full">
+          <div>
             <Label>اسم الخدمة</Label>
             <Input
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
-          {/* السعر */}
-          <div className="w-full">
+          <div>
             <Label>سعر الخدمة (LYD)</Label>
             <Input
               type="number"
               min="0"
               step="0.01"
               value={form.price}
-              onChange={e => setForm({ ...form, price: e.target.value })}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
             />
           </div>
-          {/* الدولة */}
-          <div className="w-full">
+          <div>
             <Label>الدولة</Label>
-            <div className="w-full">
-              <ReactFlagsSelect
-                selected={form.country_code}
-                onSelect={code => setForm({ ...form, country_code: code })}
-                searchable
-                placeholder="اختر دولة"
-              />
-            </div>
+            <ReactFlagsSelect
+              selected={form.country_code}
+              onSelect={(code) => setForm({ ...form, country_code: code })}
+              searchable
+              placeholder="اختر دولة"
+            />
           </div>
-          {/* العملة */}
-          <div className="w-full">
+          <div>
             <Label>العملة</Label>
             <Select
               value={form.currency_id}
-              onValueChange={v => setForm({ ...form, currency_id: v })}
+              onValueChange={(v) => setForm({ ...form, currency_id: v })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="اختر العملة" />
               </SelectTrigger>
               <SelectContent>
-                {currencies.map(c => (
+                {currencies.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
                     {c.name}
                   </SelectItem>
@@ -234,12 +257,11 @@ export default function AdminServicesPage() {
               </SelectContent>
             </Select>
           </div>
-          {/* العملية الحسابية */}
-          <div className="w-full">
+          <div>
             <Label>العملية الحسابية</Label>
             <Select
               value={form.operation}
-              onValueChange={v => setForm({ ...form, operation: v as any })}
+              onValueChange={(v) => setForm({ ...form, operation: v as any })}
             >
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -252,78 +274,110 @@ export default function AdminServicesPage() {
             </Select>
           </div>
         </div>
-
-        <div className="flex justify-center sm:justify-start">
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting}
-            className="w-full sm:w-auto"
-          >
-            {submitting ? "جاري الإنشاء..." : "إنشاء الخدمة"}
+        <div className="flex justify-end">
+          <Button onClick={handleSubmit} disabled={submitting}>
+            {submitting ? "جاري المعالجة..." : "إنشاء خدمة"}
           </Button>
         </div>
       </Card>
 
-      {/* الدول والخدمات */}
-      <h2 className="text-xl font-bold">🗺️ الدول والخدمات</h2>
+      {/* عرض المجموعات والخدمات */}
+      <h2 className="text-xl font-bold">🗺️ الخدمات مصنفة حسب الدول</h2>
       <div className="space-y-6">
         {groups.map(({ country, services }) => (
           <Card key={country.code} className="p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-4xl">
-                {countryCodeToFlag(country.code)}
-              </span>
+              <span className="text-4xl">{countryCodeToFlag(country.code)}</span>
               <h3 className="text-lg font-bold">{country.country_name}</h3>
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {services.map(srv => (
+              {services.map((srv) => (
                 <Card
                   key={srv.id}
-                  className={`p-4 space-y-2 ${
-                    srv.is_active ? "" : "opacity-50 border border-red-200"
-                  }`}
+                  className={`p-4 space-y-2 ${srv.is_active ? "" : "opacity-50 border border-red-200"}`}
                 >
-                  <div className="flex justify-between items-center">
-                    <h4 className="font-semibold">{srv.name}</h4>
-                    <span className="text-lg">
-                      {srv.operation === "multiply"
-                        ? "✖️"
-                        : srv.operation === "divide"
-                        ? "➗"
-                        : "➕"}
-                    </span>
-                  </div>
-
-                  {!srv.is_active && (
-                    <p className="text-sm text-red-600">غير نشط</p>
+                  {editingServiceId === srv.id ? (
+                    <>
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        disabled={editLoading}
+                      />
+                      <Input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editPrice}
+                        onChange={(e) => setEditPrice(e.target.value)}
+                        disabled={editLoading}
+                      />
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveService(srv.id)}
+                          disabled={editLoading}
+                        >
+                          {editLoading ? "جاري الحفظ..." : "حفظ"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={cancelEditService}
+                          disabled={editLoading}
+                        >
+                          إلغاء
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-semibold text-lg">{srv.name}</h4>
+                        <span className="text-lg">
+                          {srv.operation === "multiply"
+                            ? "✖️"
+                            : srv.operation === "divide"
+                            ? "➗"
+                            : "➕"}
+                        </span>
+                      </div>
+                      <p className="text-sm">السعر: {srv.price} LYD</p>
+                      <p className="text-sm">
+                        العملة: {currencyNameById[srv.currency_id] || "غير معرّفة"}
+                      </p>
+                      <div className="flex flex-wrap justify-end gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => startEditService(srv)}
+                        >
+                          ✏️ تعديل
+                        </Button>
+                        {!srv.is_active && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleActivate(srv.id)}
+                            disabled={activatingIds.includes(srv.id)}
+                          >
+                            {activatingIds.includes(srv.id)
+                              ? "جاري التفعيل..."
+                              : "تفعيل"}
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleDelete(srv.id)}
+                          disabled={deletingIds.includes(srv.id) || !srv.is_active}
+                        >
+                          {deletingIds.includes(srv.id)
+                            ? "جاري الحذف..."
+                            : "حذف"}
+                        </Button>
+                      </div>
+                    </>
                   )}
-
-                  <p className="text-sm">السعر: {srv.price} LYD</p>
-                  <p className="text-sm">
-                    العملة: {currencyNameById[srv.currency_id] ?? "غير معرّفة"}
-                  </p>
-
-                  <div className="flex flex-wrap justify-end gap-2 pt-2">
-                    {!srv.is_active && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleActivate(srv.id)}
-                        disabled={activatingIds.includes(srv.id)}
-                      >
-                        {activatingIds.includes(srv.id) ? "جاري التفعيل..." : "تفعيل"}
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(srv.id)}
-                      disabled={deletingIds.includes(srv.id) || !srv.is_active}
-                    >
-                      {deletingIds.includes(srv.id) ? "جاري الحذف..." : "حذف"}
-                    </Button>
-                  </div>
                 </Card>
               ))}
             </div>

@@ -24,7 +24,6 @@ import {
   Legend,
 } from "recharts";
 
-import { formatNumber, formatCurrency } from "@/lib/utils";
 
 export default function AdminReportsPage() {
   const [filters, setFilters] = useState({

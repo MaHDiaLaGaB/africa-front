@@ -14,6 +14,8 @@ export default function ReceiptOrdersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [receipts, setReceipts] = useState<any[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState("");
+  
+  const selectedCustomer = customers.find(c => String(c.id) === selectedCustomerId);
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -68,11 +70,13 @@ export default function ReceiptOrdersPage() {
               onValueChange={(val) => setSelectedCustomerId(val)}
             >
               <SelectTrigger className="w-full">
-                {selectedCustomerId || "اختيار العميل"}
-              </SelectTrigger>
+              {selectedCustomer
+                ? `${selectedCustomer.name} (${selectedCustomer.phone})`
+                : "اختيار العميل"}
+            </SelectTrigger>
               <SelectContent>
                 {customers.map((c) => (
-                  <SelectItem key={c.id} value={String(c.name)}>
+                  <SelectItem key={c.id} value={String(c.id)}>
                     {c.name} ({c.phone}) - 💰 {c.balance_due} LYD
                   </SelectItem>
                 ))}

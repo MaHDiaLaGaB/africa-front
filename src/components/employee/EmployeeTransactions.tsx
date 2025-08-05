@@ -208,8 +208,9 @@ export default function EmployeeTransactionsPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => {
-                        navigator.clipboard.writeText(t.reference);
-                        toast.success("تم نسخ المرجع");
+                        const rowText = `#${i+1}\nID: ${t.id}\nReference: ${t.reference}\nAmount (Foreign): ${t.amount_foreign}\nAmount (LYD): ${t.amount_lyd}\nService: ${servicesMap[t.service_id] || '-'}\nCustomer: ${t.customer_name || '-'}\nPhone: ${t.number}\nPayment Type: ${paymentLabel(t.payment_type)}\nTo: ${t.to}\nStatus: ${statusLabel(t.status)}\nNotes: ${t.notes || '-'}\nDate: ${new Date(t.created_at).toLocaleString()}`;
+                        navigator.clipboard.writeText(rowText);
+                        toast.success('Row data copied');
                       }}
                     >
                       <Copy className="w-4 h-4" />

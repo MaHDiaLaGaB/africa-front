@@ -6,26 +6,40 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 type UserOut = {
   id: number;
   username: string;
   full_name: string;
-  role: string;
+  role: "admin" | "employee";
 };
 
 export default function AdminEmployeesPage() {
+  // employees list
   const [employees, setEmployees] = useState<UserOut[]>([]);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
   // password editing state
-  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingPasswordId, setEditingPasswordId] = useState<number | null>(
+    null
+  );
   const [newPassword, setNewPassword] = useState("");
   const [pwLoading, setPwLoading] = useState(false);
 
-  // add employee state
+  // name editing state
+  const [editingNameId, setEditingNameId] = useState<number | null>(null);
+  const [newFullNameInput, setNewFullNameInput] = useState("");
+  const [nameLoading, setNameLoading] = useState(false);
+
+  // add employee form state
   const [showAdd, setShowAdd] = useState(false);
   const [addUsername, setAddUsername] = useState("");
   const [addFullName, setAddFullName] = useState("");
@@ -33,6 +47,7 @@ export default function AdminEmployeesPage() {
   const [addRole, setAddRole] = useState<"admin" | "employee">("employee");
   const [addLoading, setAddLoading] = useState(false);
 
+  // fetch employees from server
   const fetchEmployees = async () => {
     setLoadingEmployees(true);
     try {
@@ -49,15 +64,18 @@ export default function AdminEmployeesPage() {
     fetchEmployees();
   }, []);
 
+  // change password handler
   const handleChangePassword = async (userId: number) => {
     if (!newPassword || newPassword.length < 8) {
       return toast.error("كلمة المرور يجب أن تكون 8 حروف على الأقل");
     }
     setPwLoading(true);
     try {
-      await api.put(`/auth/${userId}/password`, { new_password: newPassword });
+      await api.put(`/auth/${userId}/password`, {
+        new_password: newPassword,
+      });
       toast.success("✅ تم تغيير كلمة المرور بنجاح");
-      setEditingId(null);
+      setEditingPasswordId(null);
       setNewPassword("");
       fetchEmployees();
     } catch {
@@ -67,19 +85,45 @@ export default function AdminEmployeesPage() {
     }
   };
 
+  // change full name handler
+  const handleNameUpdate = async (userId: number) => {
+    const trimmed = newFullNameInput.trim();
+    if (!trimmed) {
+      return toast.error("الاسم لا يمكن أن يكون فارغًا");
+    }
+    setNameLoading(true);
+    try {
+      await api.put(`/auth/${userId}/name`, { full_name: trimmed });
+      toast.success("✅ تم تحديث الاسم");
+      setEditingNameId(null);
+      setNewFullNameInput("");
+      fetchEmployees();
+    } catch {
+      toast.error("❌ فشل في تحديث الاسم");
+    } finally {
+      setNameLoading(false);
+    }
+  };
+
+  // add new employee handler
   const handleAddEmployee = async () => {
-    if (!addUsername || !addFullName || !addPassword) {
+    const username = addUsername.trim();
+    const fullName = addFullName.trim();
+    const password = addPassword;
+
+    if (!username || !fullName || !password) {
       return toast.error("جميع الحقول مطلوبة");
     }
-    if (addPassword.length < 8) {
+    if (password.length < 8) {
       return toast.error("كلمة المرور يجب أن تكون 8 حروف على الأقل");
     }
+
     setAddLoading(true);
     try {
       await api.post("/auth/register", {
-        username: addUsername,
-        full_name: addFullName,
-        password: addPassword,
+        username,
+        full_name: fullName,
+        password,
         role: addRole,
       });
       toast.success("✅ تم إضافة الموظف بنجاح");
@@ -162,7 +206,12 @@ export default function AdminEmployeesPage() {
           <Button
             className="mt-4"
             onClick={handleAddEmployee}
-            disabled={addLoading}
+            disabled={
+              addLoading ||
+              !addUsername.trim() ||
+              !addFullName.trim() ||
+              addPassword.length < 8
+            }
           >
             {addLoading ? "جاري الإضافة…" : "إضافة"}
           </Button>
@@ -179,10 +228,55 @@ export default function AdminEmployeesPage() {
               key={u.id}
               className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
-              {/* User Info */}
+              {/* Name / Username */}
               <div>
-                <div className="font-semibold text-lg">{u.full_name}</div>
-                <div className="text-sm text-muted-foreground">@{u.username}</div>
+                {editingNameId === u.id ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newFullNameInput}
+                      onChange={(e) => setNewFullNameInput(e.target.value)}
+                      disabled={nameLoading}
+                      className="w-48"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => handleNameUpdate(u.id)}
+                      disabled={nameLoading || !newFullNameInput.trim()}
+                    >
+                      {nameLoading ? "جاري الحفظ…" : "حفظ"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingNameId(null);
+                        setNewFullNameInput("");
+                      }}
+                      disabled={nameLoading}
+                    >
+                      إلغاء
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-lg">
+                      {u.full_name}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingNameId(u.id);
+                        setNewFullNameInput(u.full_name);
+                      }}
+                    >
+                      تعديل الاسم
+                    </Button>
+                  </div>
+                )}
+                <div className="text-sm text-muted-foreground">
+                  @{u.username}
+                </div>
               </div>
 
               {/* Role */}
@@ -192,10 +286,12 @@ export default function AdminEmployeesPage() {
 
               {/* Password Change */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
-                {editingId === u.id ? (
+                {editingPasswordId === u.id ? (
                   <>
                     <div className="flex flex-col w-full sm:w-48">
-                      <Label htmlFor={`pw-${u.id}`}>كلمة المرور الجديدة</Label>
+                      <Label htmlFor={`pw-${u.id}`}>
+                        كلمة المرور الجديدة
+                      </Label>
                       <Input
                         id={`pw-${u.id}`}
                         type="password"
@@ -216,7 +312,7 @@ export default function AdminEmployeesPage() {
                       variant="outline"
                       className="h-8 px-3"
                       onClick={() => {
-                        setEditingId(null);
+                        setEditingPasswordId(null);
                         setNewPassword("");
                       }}
                       disabled={pwLoading}
@@ -229,7 +325,7 @@ export default function AdminEmployeesPage() {
                     variant="ghost"
                     className="h-8"
                     onClick={() => {
-                      setEditingId(u.id);
+                      setEditingPasswordId(u.id);
                       setNewPassword("");
                     }}
                   >

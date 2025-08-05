@@ -74,23 +74,30 @@ export default function AdminAllEmployeesPage() {
   }, []);
 
   const handleTransfer = async () => {
-    if (!form.sender_id || !form.receiver_id || !form.amount) {
-      return toast.error("يرجى تعبئة جميع الحقول");
-    }
-    try {
-      await api.post("/employees/transfer", {
-        sender_id: +form.sender_id,
-        receiver_id: +form.receiver_id,
-        amount: parseFloat(form.amount),
-        currency_id: 1,
-      });
-      toast.success("✅ تم التحويل");
-      setForm({ sender_id: "", receiver_id: "", amount: "" });
-      await loadEmployees(); // refresh list & balances
-    } catch {
-      toast.error("خطأ أثناء التحويل");
-    }
-  };
+  if (!form.sender_id || !form.receiver_id || !form.amount) {
+    return toast.error("يرجى تعبئة جميع الحقول");
+  }
+
+  try {
+    // build the payload with the correct field names
+    const payload = {
+      from_employee_id: Number(form.sender_id),
+      to_employee_id:   Number(form.receiver_id),
+      amount:           parseFloat(form.amount),
+    };
+
+    console.log("Transfer payload:", payload);
+    await api.post("/admin/transfer", payload);
+
+    toast.success("✅ تم التحويل");
+    setForm({ sender_id: "", receiver_id: "", amount: "" });
+    await loadEmployees();
+  } catch (err) {
+    console.error(err);
+    toast.error("خطأ أثناء التحويل");
+  }
+};
+
 
   return (
     <div className="p-6 space-y-8">

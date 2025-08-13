@@ -6,6 +6,7 @@ import api from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";   // ← add this
+import { to2 } from "@/lib/utils"; // ← import to2 function
 
 interface Customer {
   id: number;
@@ -130,7 +131,7 @@ export default function CustomersPage() {
                 <td className="p-2">{c.name}</td>
                 <td className="p-2">{c.phone}</td>
                 <td className="p-2">{c.city}</td>
-                <td className="p-2">{c.balance_due ?? 0}</td>
+                <td className="p-2">{to2(c.balance_due) ?? 0}</td>
                 <td className="p-2 space-x-2">
                   <Button
                     size="sm"

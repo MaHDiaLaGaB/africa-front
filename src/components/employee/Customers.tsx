@@ -15,6 +15,7 @@ import {
 
 import { AmiriRegular } from "@/fonts/AmiriRegular";
 import { AmiriBold } from "@/fonts/AmiriBold";
+import { to2 } from "@/lib/utils";
 
 type Customer = {
   id: number;
@@ -152,7 +153,7 @@ export default function AdminCustomers() {
       servicesMap[t.service_id] || `#${t.service_id}`,
       t.payment_type,
       t.amount_foreign.toString(),
-      t.amount_lyd.toString(),
+      to2(t.amount_lyd).toString(),
       t.status,
       t.employee_name,
       t.client_name || "-",

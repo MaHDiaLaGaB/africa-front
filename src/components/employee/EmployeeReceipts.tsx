@@ -1,7 +1,7 @@
 // components/employee/ReceiptOrdersPage.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { to2 } from "@/lib/utils"; // Import the to2 function
+
 
 export default function ReceiptOrdersPage() {
   const [customers, setCustomers] = useState<any[]>([]);
@@ -31,6 +33,13 @@ export default function ReceiptOrdersPage() {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  // 🔎 Build a name lookup: id -> name
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const c of customers) m.set(String(c.id), c.name);
+    return m;
+  }, [customers]);
 
   const handleSubmit = async () => {
     if (!selectedCustomerId || !amount) {
@@ -70,14 +79,14 @@ export default function ReceiptOrdersPage() {
               onValueChange={(val) => setSelectedCustomerId(val)}
             >
               <SelectTrigger className="w-full">
-              {selectedCustomer
-                ? `${selectedCustomer.name} (${selectedCustomer.phone})`
-                : "اختيار العميل"}
-            </SelectTrigger>
+                {selectedCustomer
+                  ? `${selectedCustomer.name} (${selectedCustomer.phone})`
+                  : "اختيار العميل"}
+              </SelectTrigger>
               <SelectContent>
                 {customers.map((c) => (
                   <SelectItem key={c.id} value={String(c.id)}>
-                    {c.name} ({c.phone}) - 💰 {c.balance_due} LYD
+                    {c.name} ({c.phone}) - 💰 {to2(c.balance_due)} LYD
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -110,15 +119,25 @@ export default function ReceiptOrdersPage() {
           <p className="text-muted-foreground text-sm">لا توجد أوامر حتى الآن.</p>
         ) : (
           <ul className="space-y-2">
-            {receipts.map((r) => (
-              <li key={r.id} className="border p-2 sm:p-4 rounded">
-                <p className="text-sm sm:text-base">📥 {r.amount} LYD</p>
-                <p className="text-sm sm:text-base">👤 العميل: #{r.customer_id}</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  📅 {new Date(r.created_at).toLocaleDateString()}
-                </p>
-              </li>
-            ))}
+            {receipts.map((r) => {
+              // 🧠 Try several fields; fall back to the lookup via customer_id
+              const displayName =
+                r.name ??
+                r.customer_name ??
+                r.customer?.name ??
+                nameById.get(String(r.customer_id)) ??
+                "غير معروف";
+
+              return (
+                <li key={r.id} className="border p-2 sm:p-4 rounded">
+                  <p className="text-sm sm:text-base">📥 {to2(r.amount)} LYD</p>
+                  <p className="text-sm sm:text-base">👤 العميل: {displayName}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    📅 {new Date(r.created_at).toLocaleDateString("ar-LY")}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         )}
       </Card>

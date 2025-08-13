@@ -12,6 +12,7 @@ import api from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import TransferModal from "./TransferModel"
 import { TransferCreditModal } from "./TransferCreditModal"
+import { to2 } from "@/lib/utils"
 
 function countryCodeToFlag(isoCode: string): string {
   return isoCode
@@ -71,7 +72,7 @@ export default function EmployeeDashboard() {
             رصيدك الحالي
           </p>
           <h2 className="text-2xl sm:text-3xl font-bold text-green-700">
-            {balance !== null ? `${balance} LYD` : "..."}
+            {balance !== null ? `${to2(balance)} LYD` : "..."}
           </h2>
           <Button
             variant="outline"

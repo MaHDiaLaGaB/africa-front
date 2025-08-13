@@ -57,3 +57,8 @@ export function formatCurrency(
     maximumFractionDigits: decimals,
   }).format(num);
 }
+
+export function to2(val: unknown): string {
+  const num = typeof val === "number" ? val : parseFloat(String(val))
+  return Number.isFinite(num) ? num.toFixed(2) : String(val ?? "")
+}

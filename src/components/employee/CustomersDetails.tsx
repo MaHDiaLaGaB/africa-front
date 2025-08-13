@@ -45,12 +45,18 @@ type ServiceOut = {
   name: string;
 };
 
+/** صياغة رقمية إلى خانتين عشريتين (string) */
+function to2(val: unknown): string {
+  const num = typeof val === "number" ? val : parseFloat(String(val));
+  return Number.isFinite(num) ? num.toFixed(2) : String(val ?? "");
+}
+
 export default function CustomerDetailsPage() {
   const { id } = useParams();
-  const [customer, setCustomer]       = useState<Customer | null>(null);
+  const [customer, setCustomer]         = useState<Customer | null>(null);
   const [transactions, setTransactions] = useState<TransactionType[]>([]);
   const [receipts, setReceipts]         = useState<ReceiptType[]>([]);
-  const [servicesMap, setServicesMap]   = useState<Record<number,string>>({});
+  const [servicesMap, setServicesMap]   = useState<Record<number, string>>({});
   const [loading, setLoading]           = useState(false);
 
   useEffect(() => {
@@ -65,20 +71,25 @@ export default function CustomerDetailsPage() {
         api.get<TransactionType[]>(`/customers/${customerId}/transactions`),
         api.get<ReceiptType[]>(`/customers/${customerId}/receipts`),
       ]);
+
       setCustomer(cRes.data);
 
       const txs = txRes.data;
       setTransactions(txs);
       setReceipts(rcRes.data);
 
-      // fetch services names
+      // جلب أسماء الخدمات المستعملة فقط
       const uniqueSvc = Array.from(new Set(txs.map((t) => t.service_id)));
-      const svcRes = await Promise.all(
-        uniqueSvc.map((sid) => api.get<ServiceOut>(`/services/get/${sid}`))
-      );
-      setServicesMap(
-        svcRes.reduce((m, r) => ({ ...m, [r.data.id]: r.data.name }), {})
-      );
+      if (uniqueSvc.length) {
+        const svcRes = await Promise.all(
+          uniqueSvc.map((sid) => api.get<ServiceOut>(`/services/get/${sid}`))
+        );
+        setServicesMap(
+          svcRes.reduce((m, r) => ({ ...m, [r.data.id]: r.data.name }), {})
+        );
+      } else {
+        setServicesMap({});
+      }
     } catch (err) {
       console.error("فشل في تحميل البيانات", err);
     } finally {
@@ -86,8 +97,16 @@ export default function CustomerDetailsPage() {
     }
   }
 
+  // إجماليات (نُنسِّق عند العرض فقط)
   const totalDebt = transactions.reduce((s, t) => s + t.amount_foreign, 0);
   const totalPaid = receipts.reduce((s, r) => s + r.amount, 0);
+
+  // دمج في جدول واحد بترتيب زمني تصاعدي
+  const combined =
+    [
+      ...transactions.map((t) => ({ kind: "tx" as const, dt: t.created_at, t })),
+      ...receipts.map((r)    => ({ kind: "rcpt" as const, dt: r.created_at, r })),
+    ].sort((a, b) => new Date(a.dt).getTime() - new Date(b.dt).getTime());
 
   function generatePDF() {
     if (!customer) return;
@@ -98,55 +117,56 @@ export default function CustomerDetailsPage() {
       format: "a4",
       putOnlyUsedFonts: true,
     });
+
+    // خطوط عربية
     doc.addFileToVFS("Amiri-Regular.ttf", AmiriRegular);
     doc.addFileToVFS("Amiri-Bold.ttf",   AmiriBold);
     doc.addFont("Amiri-Regular.ttf", "Amiri", "normal");
     doc.addFont("Amiri-Bold.ttf",   "Amiri", "bold");
 
-    // title
+    // العنوان
     doc.setFont("Amiri", "bold");
     doc.setFontSize(16);
     doc.text(`${customer.name} :تقرير معاملات العميل`, 290, 20, { align: "right" });
 
-    // table
+    // رأس الجدول
     const head = [[
       "التاريخ","مرجع","الخدمة","نوع الدفع",
       "أجنبي","دينار","حالة","إلى","رقم","ملاحظات"
     ]];
-    const body = [
-      // all the normal transaction rows…
-      ...transactions.map((t) => [
-        new Date(t.created_at).toLocaleDateString("ar-LY"),
-        t.reference,
-        servicesMap[t.service_id] ?? `#${t.service_id}`,
-        t.payment_type,
-        t.amount_foreign.toString(),
-        t.amount_lyd.toString(),
-        t.status,
-        t.to,
-        t.number,
-        t.notes || "-",
-      ]),
 
-      // receipts: merge columns 2–9 into one “Receipt” cell, leave amount in the last column
-      ...receipts.map((r) => [
-        // 1st column: date
-        new Date(r.created_at).toLocaleDateString("ar-LY"),
-
-        // 2nd cell: spans the next 8 columns (ref, service, pay‑type, foreign, lyd, status, to, number)
-        {
-          content: "سداد دفعة",
-          colSpan: 8,
-          styles:  {
-        halign: "center",
-        fontStyle: "bold" as const
-      } as any,
-        },
-
-        // 3rd cell (actually ends up in the 10th column): the receipt amount
-        r.amount.toString(),
-      ]),
-    ];
+    // جسم الجدول (مطابق للواجهة — بدون colSpan في السداد)
+    const body = combined.map((row) => {
+      if (row.kind === "tx") {
+        const t = row.t;
+        return [
+          new Date(t.created_at).toLocaleDateString("ar-LY"),
+          t.reference,
+          servicesMap[t.service_id] ?? `#${t.service_id}`,
+          t.payment_type,
+          to2(t.amount_foreign),
+          to2(t.amount_lyd),
+          t.status,
+          t.to,
+          t.number,
+          t.notes || "-",
+        ];
+      } else {
+        const r = row.r;
+        return [
+          new Date(r.created_at).toLocaleDateString("ar-LY"), // التاريخ
+          "",                          // مرجع
+          "",                          // الخدمة
+          "سداد دفعة",                 // نوع الدفع
+          "",                          // أجنبي
+          to2(r.amount),               // دينار
+          "تم السداد",                 // حالة
+          "",                          // إلى
+          "",                          // رقم
+          "-",                         // ملاحظات
+        ];
+      }
+    });
 
     autoTable(doc, {
       startY: 30,
@@ -161,7 +181,7 @@ export default function CustomerDetailsPage() {
     const finalY = (doc as any).lastAutoTable.finalY + 10;
     doc.setFont("Amiri", "normal");
     doc.setFontSize(12);
-    doc.text(`المجموع: دين ${totalDebt} — سداد ${totalPaid}`, 290, finalY, { align: "right" });
+    doc.text(`المجموع: دين ${to2(totalDebt)} — سداد ${to2(totalPaid)}`, 290, finalY, { align: "right" });
 
     doc.save(`report_customer_${customer.id}.pdf`);
   }
@@ -176,7 +196,7 @@ export default function CustomerDetailsPage() {
       <div className="flex flex-wrap gap-4 text-sm">
         <p>📞 {customer.phone}</p>
         <p>🏙️ {customer.city}</p>
-        <p className="font-medium">💰 الرصيد: {customer.balance_due} LYD</p>
+        <p className="font-medium">💰 الرصيد: {to2(customer.balance_due)} LYD</p>
       </div>
 
       <Button onClick={generatePDF} className="mt-4">
@@ -196,31 +216,43 @@ export default function CustomerDetailsPage() {
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
-              <tr key={t.id} className="border-t hover:bg-gray-50">
-                <td className="px-2 py-1">{new Date(t.created_at).toLocaleDateString("ar-LY")}</td>
-                <td className="px-2 py-1">{t.reference}</td>
-                <td className="px-2 py-1">{servicesMap[t.service_id]}</td>
-                <td className="px-2 py-1">{t.payment_type}</td>
-                <td className="px-2 py-1">{t.amount_foreign}</td>
-                <td className="px-2 py-1">{t.amount_lyd}</td>
-                <td className="px-2 py-1">{t.status}</td>
-                {/* <td className="px-2 py-1">{t.employee_name}</td>
-                <td className="px-2 py-1">{t.client_name}</td> */}
-                <td className="px-2 py-1">{t.to}</td>
-                <td className="px-2 py-1">{t.number}</td>
-                <td className="px-2 py-1">{t.notes}</td>
-              </tr>
-            ))}
-            {receipts.map((r) => (
-              <tr key={r.id} className="border-t hover:bg-gray-50">
-                <td className="px-2 py-1">{new Date(r.created_at).toLocaleDateString("ar-LY")}</td>
-                <td colSpan={10} className="px-2 py-1 text-center">
-                  سداد دفعة
-                </td>
-                <td className="px-2 py-1">{r.amount}</td>
-              </tr>
-            ))}
+            {combined.map((row) =>
+              row.kind === "tx" ? (
+                <tr key={`tx-${row.t.id}`} className="border-t hover:bg-gray-50">
+                  <td className="px-2 py-1">{new Date(row.t.created_at).toLocaleDateString("ar-LY")}</td>
+                  <td className="px-2 py-1">{row.t.reference}</td>
+                  <td className="px-2 py-1">{servicesMap[row.t.service_id] ?? `#${row.t.service_id}`}</td>
+                  <td className="px-2 py-1">{row.t.payment_type}</td>
+                  <td className="px-2 py-1">{to2(row.t.amount_foreign)}</td>
+                  <td className="px-2 py-1 font-semibold">{to2(row.t.amount_lyd)}</td>
+                  <td className="px-2 py-1">{row.t.status}</td>
+                  <td className="px-2 py-1">{row.t.to}</td>
+                  <td className="px-2 py-1">{row.t.number}</td>
+                  <td className="px-2 py-1">{row.t.notes || "-"}</td>
+                </tr>
+              ) : (
+                <tr key={`rcpt-${row.r.id}`} className="border-t hover:bg-gray-50">
+                  <td className="px-2 py-1">{new Date(row.r.created_at).toLocaleDateString("ar-LY")}</td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                  <td className="px-2 py-1">
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-amber-50 border-amber-200">
+                      سداد دفعة
+                    </span>
+                  </td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                  <td className="px-2 py-1 font-semibold text-green-700">{to2(row.r.amount)}</td>
+                  <td className="px-2 py-1">
+                    <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-green-50 border-green-200">
+                      ✓ تم السداد
+                    </span>
+                  </td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                  <td className="px-2 py-1 text-muted-foreground">—</td>
+                </tr>
+              )
+            )}
           </tbody>
         </table>
       </div>

@@ -1,34 +1,23 @@
+// components/admin/TransactionEditForm.tsx
 "use client";
 import { useState, useEffect } from "react";
 import api from "@/lib/api";
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogFooter
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import {
+  Select, SelectTrigger, SelectContent, SelectItem, SelectValue
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { formatCurrency } from "@/lib/utils";
 
-// schemas/transactions.ts
+export enum PaymentType { cash = "cash", credit = "credit" }
+export enum TransactionStatus { pending = "pending", completed = "completed", cancelled = "cancelled" }
 
-/**
- * These enums should match your backend Pydantic definitions in Python:
- */
-export enum PaymentType {
-  cash = "cash",
-  credit = "credit",
-}
-
-export enum TransactionStatus {
-  pending   = "pending",
-  completed = "completed",
-  cancelled = "cancelled",
-}
-
-/**
- * Shared Transaction shape for frontend use
- */
 export interface Transaction {
   id: number;
   reference: string;
@@ -47,7 +36,6 @@ export interface Transaction {
   client_name?: string;
 }
 
-
 interface TransactionEditModalProps {
   txn: Transaction;
   onSaved: () => void;
@@ -57,12 +45,11 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     reference: txn.reference,
-    client_name: txn.client_name ?? "",       // registered customer
-    customer_name: txn.customer_name ?? "",   // free-text Zبون
+    client_name: txn.client_name ?? "",
+    customer_name: txn.customer_name ?? "",
     to: txn.to ?? "",
     number: txn.number ?? "",
     amount_foreign: txn.amount_foreign,
-    // amount_lyd: txn.amount_lyd,
     payment_type: txn.payment_type,
     status: txn.status,
     status_reason: txn.status_reason ?? "",
@@ -80,7 +67,6 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
         to: txn.to ?? "",
         number: txn.number ?? "",
         amount_foreign: txn.amount_foreign,
-        // amount_lyd: txn.amount_lyd,
         payment_type: txn.payment_type,
         status: txn.status,
         status_reason: txn.status_reason ?? "",
@@ -90,28 +76,16 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
     }
   }, [open, txn]);
 
-  const handleChange = <K extends keyof typeof form>(field: K, value: typeof form[K]) => {
+  const handleChange = <K extends keyof typeof form>(field: K, value: typeof form[K]) =>
     setForm((f) => ({ ...f, [field]: value }));
-  };
 
   const save = async () => {
     setSaving(true);
-    // If status or status_reason changed, call status endpoint first
-    // if (form.status !== txn.status || form.status_reason !== txn.status_reason) {
-    //   await api.put(`/admintx/transaction/${txn.id}/status`, {
-    //     status: form.status,
-    //     reason: form.status_reason,
-    //   });
-    // }
-
-    // Update other fields via general endpoint
-    console.log(`the status form is ${form.status} and the status from txn is ${txn.status}`);
     const updateData: any = { ...form };
     delete updateData.client_name;
-    delete updateData.created_at;
     delete updateData.amount_lyd;
     delete updateData.created_at;
-    console.log(`updated data is ${JSON.stringify(updateData)}\n the id is ${txn.id}`)
+
     const res = await api.put(`/transactions/update/${txn.id}`, updateData);
     console.log("Update response:", res.data);
     toast.success("تم حفظ التعديلات");
@@ -125,22 +99,27 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">تعديل</Button>
       </DialogTrigger>
-      <DialogContent>
+
+      <DialogContent className="max-w-2xl w-[92vw] sm:w-[560px]" dir="rtl">
         <DialogHeader>
           <DialogTitle>تعديل حوالة #{txn.id}</DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 gap-4">
-          <div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
             <Label>المرجع</Label>
             <Input
+              dir="ltr"
               value={form.reference}
               onChange={(e) => handleChange("reference", e.target.value)}
             />
           </div>
+
           <div>
             <Label>عميل مسجل</Label>
             <Input value={form.client_name} disabled />
           </div>
+
           <div>
             <Label>الزبون</Label>
             <Input
@@ -148,13 +127,17 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
               onChange={(e) => handleChange("customer_name", e.target.value)}
             />
           </div>
+
           <div>
             <Label>الهاتف</Label>
             <Input
+              dir="ltr"
+              inputMode="tel"
               value={form.number}
               onChange={(e) => handleChange("number", e.target.value)}
             />
           </div>
+
           <div>
             <Label>إلى</Label>
             <Input
@@ -162,31 +145,36 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
               onChange={(e) => handleChange("to", e.target.value)}
             />
           </div>
+
           <div>
             <Label>المبلغ أجنبي</Label>
             <Input
+              dir="ltr"
+              inputMode="decimal"
               type="number"
               value={form.amount_foreign}
               onChange={(e) => handleChange("amount_foreign", parseFloat(e.target.value))}
             />
           </div>
+
           <div>
             <Label>المبلغ بلليبي</Label>
             <Input
-              type="number"
-              value={txn.amount_lyd}  // Use original value from props
+              dir="ltr"
+              value={formatCurrency(txn.amount_lyd)}
               disabled
               readOnly
             />
           </div>
+
           <div>
             <Label>طريقة الدفع</Label>
             <Select
               value={form.payment_type}
               onValueChange={(v) => handleChange("payment_type", v as PaymentType)}
             >
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="اختر" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={PaymentType.cash}>نقدًا</SelectItem>
@@ -194,14 +182,15 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
               </SelectContent>
             </Select>
           </div>
+
           <div>
             <Label>الحالة</Label>
             <Select
               value={form.status}
               onValueChange={(v) => handleChange("status", v as TransactionStatus)}
             >
-              <SelectTrigger>
-                <SelectValue />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="اختر" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={TransactionStatus.pending}>قيد التنفيذ</SelectItem>
@@ -210,30 +199,35 @@ export function TransactionEditModal({ txn, onSaved }: TransactionEditModalProps
               </SelectContent>
             </Select>
           </div>
-          <div>
+
+          <div className="sm:col-span-2">
             <Label>سبب الحالة</Label>
             <Input
               value={form.status_reason}
               onChange={(e) => handleChange("status_reason", e.target.value)}
             />
           </div>
-          <div>
+
+          <div className="sm:col-span-2">
             <Label>ملاحظات</Label>
             <Input
               value={form.notes}
               onChange={(e) => handleChange("notes", e.target.value)}
             />
           </div>
-          <div>
+
+          <div className="sm:col-span-2">
             <Label>تاريخ الإنشاء</Label>
             <Input
+              dir="ltr"
               value={format(new Date(form.created_at), "yyyy-MM-dd")}
               disabled
             />
           </div>
         </div>
+
         <DialogFooter>
-          <Button onClick={save} disabled={saving}>
+          <Button onClick={save} disabled={saving} className="w-full sm:w-auto">
             {saving ? "جاري الحفظ..." : "حفظ"}
           </Button>
         </DialogFooter>

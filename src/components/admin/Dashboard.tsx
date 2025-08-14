@@ -1,3 +1,4 @@
+// components/admin/Dashboard.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,14 +12,13 @@ import { toast } from "sonner";
 
 type Currency = {
   id: number;
-  code: string; // e.g., "LYD", "USD"
-  name: string; // e.g., "الدينار الليبي"
+  code: string;
+  name: string;
 };
 
 export default function AdminDashboard() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-
   const [currencies, setCurrencies] = useState<Currency[]>([]);
 
   const fetchData = async () => {
@@ -48,7 +48,6 @@ export default function AdminDashboard() {
     fetchCurrencies();
   }, []);
 
-  // Fast lookups
   const nameById = useMemo(() => {
     const m = new Map<number, string>();
     currencies.forEach((c) => m.set(c.id, c.name));
@@ -67,7 +66,6 @@ export default function AdminDashboard() {
     return m;
   }, [currencies]);
 
-  // Resolve currency name + code from a stats row (supports id or code)
   const resolveCurrency = (item: any): { name: string; code: string } => {
     const idCandidate =
       item.curr_id ??
@@ -91,22 +89,21 @@ export default function AdminDashboard() {
     if (!name && code) name = nameByCode.get(code);
 
     return { name: name ?? (code || "عملة غير معروفة"), code: code || "" };
-
   };
 
   if (!data) {
     return (
-      <p className="text-center text-muted-foreground py-6">
-        جاري التحميل...
-      </p>
+      <div className="min-h-[40vh] grid place-items-center">
+        <p className="text-center text-muted-foreground">جاري التحميل...</p>
+      </div>
     );
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 max-w-6xl mx-auto" dir="rtl">
+    <div className="space-y-6" dir="rtl">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h1 className="text-2xl font-bold">لوحة المدير</h1>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold">لوحة المدير</h1>
         <Button
           onClick={fetchData}
           disabled={loading}
@@ -124,37 +121,41 @@ export default function AdminDashboard() {
       </div>
 
       {/* وصول سريع */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-  <Link href="/admin/listEmployee" className="block">
-    <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
-      <CardContent className="p-4 text-center">
-        <h2 className="text-lg font-semibold mb-1">قائمة الموظفين</h2>
-        <p className="text-sm text-muted-foreground">عرض جميع الموظفين</p>
-      </CardContent>
-    </Card>
-  </Link>
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <Link href="/admin/listEmployee" className="block">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <h2 className="text-base sm:text-lg font-semibold mb-1">
+                قائمة الموظفين
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                عرض جميع الموظفين
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-  <Link href="/admin/services" className="block">
-    <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
-      <CardContent className="p-4 text-center">
-        <h2 className="text-lg font-semibold mb-1">الخدمات</h2>
-        <p className="text-sm text-muted-foreground">إدارة وعرض الخدمات</p>
-      </CardContent>
-    </Card>
-  </Link>
+        <Link href="/admin/services" className="block">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <h2 className="text-base sm:text-lg font-semibold mb-1">الخدمات</h2>
+              <p className="text-sm text-muted-foreground">إدارة وعرض الخدمات</p>
+            </CardContent>
+          </Card>
+        </Link>
 
-  <Link href="/admin/customers" className="block">
-    <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
-      <CardContent className="p-4 text-center">
-        <h2 className="text-lg font-semibold mb-1">العملاء</h2>
-        <p className="text-sm text-muted-foreground">إدارة وعرض العملاء</p>
-      </CardContent>
-    </Card>
-  </Link>
-</div>
+        <Link href="/admin/customers" className="block">
+          <Card className="h-full cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-4 text-center">
+              <h2 className="text-base sm:text-lg font-semibold mb-1">العملاء</h2>
+              <p className="text-sm text-muted-foreground">إدارة وعرض العملاء</p>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
 
       {/* الإحصائيات العامة */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">إجمالي العمليات اليوم</p>
@@ -163,6 +164,7 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
+
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">قيمة المبيعات (LYD)</p>
@@ -171,6 +173,7 @@ export default function AdminDashboard() {
             </p>
           </CardContent>
         </Card>
+
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">الربح الصافي</p>
@@ -182,14 +185,14 @@ export default function AdminDashboard() {
       </div>
 
       {/* لوحات البيانات المفصلة */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
         {/* أفضل الموظفين */}
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4 space-y-2">
             <h2 className="font-semibold text-lg mb-2">🏅 أفضل الموظفين</h2>
             <ul className="space-y-1.5">
               {data.top_employees.map((emp: any, idx: number) => (
-                <li key={idx} className="flex items-center justify-between">
+                <li key={idx} className="flex items-center justify-between gap-3">
                   <span className="truncate">
                     {idx + 1}. {emp.username}
                   </span>
@@ -210,11 +213,10 @@ export default function AdminDashboard() {
               {data.top_services.map((srv: any, idx: number) => {
                 const noun = srv.count >= 2 && srv.count <= 9 ? "عمليات" : "عملية";
                 return (
-                  <li key={idx} className="flex items-center justify-between">
+                  <li key={idx} className="flex items-center justify-between gap-3">
                     <span className="truncate">
                       {idx + 1}. {srv.service_name}
                     </span>
-                    {/* Keep digits LTR */}
                     <span dir="ltr" className="text-muted-foreground tabular-nums">
                       {srv.count} {noun}
                     </span>
@@ -226,12 +228,11 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* العملات الأكثر تداولًا — احترافي ومتّسق اتجاهيًا */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+      {/* العملات الأكثر تداولًا */}
+      <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2">
         <Card className="rounded-2xl shadow-sm">
           <CardContent className="p-4 space-y-3">
             <h2 className="font-semibold text-lg">💱 العملات الأكثر تداولًا</h2>
-
             <ul className="space-y-2">
               {data.top_currencies.map((item: any, idx: number) => {
                 const { name, code } = resolveCurrency(item);
@@ -242,14 +243,12 @@ export default function AdminDashboard() {
                     key={idx}
                     className="flex items-center justify-between gap-3 rounded-lg border bg-white/50 p-2 hover:bg-muted/50"
                   >
-                    {/* Left side (RTL): rank + name + code badge */}
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
                         {idx + 1}
                       </span>
                       <div className="min-w-0">
                         <div className="font-medium truncate">
-                          {/* bdi isolates direction for mixed-language names */}
                           <bdi>{name}</bdi>
                           {code && (
                             <span
@@ -263,7 +262,6 @@ export default function AdminDashboard() {
                       </div>
                     </div>
 
-                    {/* Right side: amount, always LTR + tabular digits */}
                     <div dir="ltr" className="text-sm font-semibold tabular-nums whitespace-nowrap">
                       {formatCurrency(used.toFixed(2))}
                     </div>

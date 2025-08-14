@@ -1,3 +1,4 @@
+// components/admin/Transactions.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -17,8 +18,9 @@ export default function AdminTransactionsPage() {
   }, []);
 
   return (
-    <div className="px-4 sm:px-6 lg:px-8 py-6 w-full">
-      <div className="overflow-x-auto">
+    <div className="w-full py-4 sm:py-6" dir="rtl">
+      {/* يحافظ على التمرير الأفقي عند الحاجة ويمنع اهتزاز الواجهة */}
+      <div className="overflow-x-auto overscroll-x-contain">
         <TransactionPage />
       </div>
     </div>

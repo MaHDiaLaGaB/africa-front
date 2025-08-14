@@ -1,3 +1,4 @@
+// app/employe/layout.tsx  (أبقيت نفس المسار كما أرسلته)
 "use client";
 
 import { useAuth } from "@/lib/auth";
@@ -17,17 +18,19 @@ export default function EmployeeLayout({ children }: { children: React.ReactNode
   }, [user]);
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-dvh bg-muted">
+      {/* Sidebar (drawer على الجوال) */}
       <Sidebar
         role="employee"
         isOpen={isSidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
 
+      {/* المحتوى */}
       <div className="flex-1 flex flex-col">
         <Header onToggleSidebar={() => setSidebarOpen(prev => !prev)} />
-        <main className="flex-1 overflow-y-auto bg-muted px-4 sm:px-6 lg:px-8 py-6">
-          {children}
+        <main className="flex-1 overflow-y-auto">
+          <div className="container-std py-4 sm:py-6">{children}</div>
         </main>
       </div>
     </div>

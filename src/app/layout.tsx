@@ -1,9 +1,9 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import ClientProviders from "@/components/auth/ClientProviders";
 import { Toaster } from "sonner";
 import "./globals.css";
-// import NotificationBell from "@/components/layout/NotificationBell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,9 +28,13 @@ export default function RootLayout({
   return (
     <html lang="ar" dir="rtl">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-muted`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground min-h-screen`}
       >
-        <ClientProviders>{children}</ClientProviders>
+        <ClientProviders>
+          <main className="min-h-dvh flex flex-col">
+            {children}
+          </main>
+        </ClientProviders>
         <Toaster richColors />
       </body>
     </html>

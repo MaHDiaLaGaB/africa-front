@@ -1,4 +1,4 @@
-// components/NotificationBell.tsx
+// components/layout/NotificationBell.tsx
 'use client';
 
 import React, { useEffect, useState, useCallback, type ReactElement } from 'react';
@@ -7,7 +7,6 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { useWebSocket } from '@/lib/useNotifications';
-import { nanoid } from 'nanoid';
 
 interface Notification {
   id: string;
@@ -24,37 +23,24 @@ export default function NotificationBell(): ReactElement {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const handleNewMessage = useCallback((data: any) => {
-  // 1) Pick a unique ID (server-provided or client-generated)
-  const id = data.id ?? crypto.randomUUID();
-  const timestamp = data.timestamp ?? new Date().toISOString();
+    const id = data.id ?? crypto.randomUUID();
+    const timestamp = data.timestamp ?? new Date().toISOString();
 
-  // 2) Insert only if unseen
-  setNotifications(prev => {
-    // If the backend id already exists, skip
-    if (prev.some(n => n.id === id)) {
-      console.log('[NotificationBell] duplicate skipped', id);
-      return prev;
-    }
+    setNotifications(prev => {
+      if (prev.some(n => n.id === id)) return prev;
+      const newNotification: Notification = {
+        id,
+        message: data.message,
+        type: data.type || 'info',
+        timestamp,
+        read: false,
+      };
+      return [newNotification, ...prev];
+    });
 
-    const newNotification: Notification = {
-      id,
-      message: data.message,
-      type: data.type || 'info',
-      timestamp,
-      read: false,
-    };
-    return [newNotification, ...prev];
-  });
+    setUnreadCount(prev => prev + 1);
+  }, []);
 
-  // If it was genuinely new, bump unreadCount
-  setUnreadCount(prev => {
-    // peek into notifications to see if that id was already there
-    // (you could mirror the check above or use a ref-based Set)
-    return prev + 1;
-  });
-}, []);
-
-  // Provide string or null to match hook signature
   useWebSocket(user?.id?.toString() ?? null, handleNewMessage);
 
   useEffect(() => {
@@ -88,38 +74,50 @@ export default function NotificationBell(): ReactElement {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" className="relative p-2 rounded-full" aria-label="Notifications">
+        <Button
+          variant="ghost"
+          className="relative p-2 rounded-full"
+          aria-label="الإشعارات"
+        >
           <Bell className="h-6 w-6" />
           {unreadCount > 0 && (
-            <span className="absolute top-0 right-0 flex items-center justify-center h-5 w-5 rounded-full bg-red-500 text-white text-xs">
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs">
               {unreadCount > 9 ? '9+' : unreadCount}
             </span>
           )}
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" className="w-80 p-0 max-h-[70vh] overflow-hidden" onOpenAutoFocus={e => e.preventDefault()}>
+      <PopoverContent
+        align="end"
+        className="w-80 sm:w-96 p-0 max-h-[70vh] overflow-hidden"
+        onOpenAutoFocus={e => e.preventDefault()}
+        dir="rtl"
+      >
         <div className="p-3 border-b flex justify-between items-center bg-gray-50">
-          <span className="font-semibold">Notifications</span>
+          <span className="font-semibold">التنبيهات</span>
           {notifications.length > 0 && (
             <Button variant="link" size="sm" className="text-primary h-auto p-0" onClick={clearNotifications}>
-              Clear All
+              مسح الكل
             </Button>
           )}
         </div>
 
         <div className="overflow-y-auto max-h-[60vh]">
           {notifications.length === 0 ? (
-            <div className="p-4 text-center text-sm text-gray-500">No notifications</div>
+            <div className="p-4 text-center text-sm text-gray-500">لا توجد إشعارات</div>
           ) : (
             <ul>
               {notifications.map((notification, index) => (
-                <li key={`${notification.id}-${index} `} className={`p-3 border-b hover:bg-gray-50 transition-colors ${getNotificationStyle(notification.type)}`}>
+                <li
+                  key={`${notification.id}-${index}`}
+                  className={`p-3 border-b hover:bg-gray-50 transition-colors ${getNotificationStyle(notification.type)}`}
+                >
                   <div className="flex items-start gap-2">
                     <div className={`mt-1 h-3 w-3 rounded-full ${notification.read ? 'bg-gray-400' : 'bg-primary'}`}></div>
-                    <div className="flex-1">
-                      <p className="text-sm">{notification.message}</p>
-                      <div className="flex justify-between mt-1">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm break-words">{notification.message}</p>
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs text-gray-500">{formatTime(notification.timestamp)}</span>
                         <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 capitalize">{notification.type}</span>
                       </div>
@@ -133,7 +131,7 @@ export default function NotificationBell(): ReactElement {
 
         <div className="p-2 border-t bg-gray-50 text-center">
           <Button variant="link" size="sm" className="text-gray-600" onClick={() => setOpen(false)}>
-            Close
+            إغلاق
           </Button>
         </div>
       </PopoverContent>

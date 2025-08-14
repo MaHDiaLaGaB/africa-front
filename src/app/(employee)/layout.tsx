@@ -1,4 +1,4 @@
-// app/employe/layout.tsx  (أبقيت نفس المسار كما أرسلته)
+// app/employe/layout.tsx 
 "use client";
 
 import { useAuth } from "@/lib/auth";
